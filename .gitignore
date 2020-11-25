@@ -1,12 +1,13 @@
 /*
+/msvc/Release-x64/*
+/msvc/blend2d-static/*
 !/.gitignore
+!/assets
 !/blend2d
 !/rebol
 !/src
-!make.bat
-!/msvc/
-/msvc/Release-x64/*
-/msvc/blend2d-static/*
+!/make.bat
+!/test.r3
 !/msvc/build-blend2d-extension-release.bat
 !/msvc/build-blend2d-static-release.bat
 !/msvc/ext-b2d-x64-st.sln
