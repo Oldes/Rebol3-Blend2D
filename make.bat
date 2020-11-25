@@ -21,3 +21,7 @@ cd %~dp0
 ::
 msbuild "msvc\ext-b2d-x64-st.sln" /p:Configuration=Release /p:Platform="x64"
 cd %~dp0
+::
+:: Copy result to project root
+::
+copy msvc\Release-x64\ext-b2d-x64-st.dll r3-blend2d-x64.dll
