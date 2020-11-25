@@ -3,7 +3,10 @@
 !/blend2d
 !/rebol
 !/src
-!/make.bat
+!make.bat
+!/msvc/
+/msvc/Release-x64/*
+/msvc/blend2d-static/*
 !/msvc/build-blend2d-extension-release.bat
 !/msvc/build-blend2d-static-release.bat
 !/msvc/ext-b2d-x64-st.sln
