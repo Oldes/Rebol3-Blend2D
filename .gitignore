@@ -1,0 +1,11 @@
+/*
+!/.gitignore
+!/blend2d
+!/rebol
+!/src
+!/make.bat
+!/msvc/build-blend2d-extension-release.bat
+!/msvc/build-blend2d-static-release.bat
+!/msvc/ext-b2d-x64-st.sln
+!/msvc/ext-b2d-x64-st.vcxproj
+!/msvc/ext-b2d-x64-st.vcxproj.filters
