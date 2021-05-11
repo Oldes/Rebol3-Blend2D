@@ -2,6 +2,7 @@
 **
 **  REBOL [R3] Language Interpreter and Run-time Environment
 **  Copyright 2012 REBOL Technologies
+**  Copyright 2012-2021 Rebol Open Source Contributors
 **  REBOL is a trademark of REBOL Technologies
 **  Licensed under the Apache License, Version 2.0
 **  This is a code-generated file.
@@ -9,8 +10,8 @@
 ************************************************************************
 **
 **  Title: REBOL Host/Extension API
-**  Build: A0
-**  Date:  25-Nov-2020
+**  Build: 3.5.3
+**  Date:  4-May-2021
 **  File:  reb-lib-lib.reb
 **
 **  AUTO-GENERATED FILE - Do not modify. (From: make-reb-lib.reb)
@@ -58,4 +59,7 @@ RL_LIB Ext_Lib = {
 	RL_Encode_UTF8,
 	RL_Encode_UTF8_String,
 	RL_Decode_UTF_String,
+	RL_Register_Handle,
+	RL_Make_Handle_Context,
+	RL_Free_Handle_Context,
 };
