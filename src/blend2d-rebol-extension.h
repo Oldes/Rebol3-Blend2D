@@ -106,10 +106,10 @@ const char *init_block =
 	"fill-pen: command [\"Sets the area fill pen color\" pen [tuple! image! logic!] \"Set to OFF to disable fill pen\"]\n"
 	"box: command [\"Draws a rectangular box.\" origin [pair!] \"Corner of box\" end [pair!] \"End of box\" corner-radius [number!] \"Rounds corners\"]\n"
 	"init-words words: [line cubic quad polygon shape box circle ellipse arc image text fill-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord]\n"
-	"system/dialects/draw:\n"
-	"dial-draw: context [\n"
-	"	type-spec:		[block!]\n"
-	"	fill-pen:       [tuple! image! logic!]\n"
-	"	box:            [pair! pair! decimal!]\n"
-	"	line:           [* pair!]\n"
-	"]\n";
+	";system/dialects/draw:\n"
+	";dial-draw: context [\n"
+	";	type-spec:		[block!]\n"
+	";	fill-pen:       [tuple! image! logic!]\n"
+	";	box:            [pair! pair! decimal!]\n"
+	";	line:           [* pair!]\n"
+	";]\n";

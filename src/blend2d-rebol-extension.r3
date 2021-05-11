@@ -165,13 +165,13 @@ new-line/all cmd-words false
 new-line/all arg-words false
 append header rejoin [{^/init-words words: } mold cmd-words #" " mold arg-words]
 append header {
-system/dialects/draw:
-dial-draw: context [
-	type-spec:		[block!]
-	fill-pen:       [tuple! image! logic!]
-	box:            [pair! pair! decimal!]
-	line:           [* pair!]
-]}
+;system/dialects/draw:
+;dial-draw: context [
+;	type-spec:		[block!]
+;	fill-pen:       [tuple! image! logic!]
+;	box:            [pair! pair! decimal!]
+;	line:           [* pair!]
+;]}
 
 print header
 
@@ -204,4 +204,4 @@ append out ";"
 
 print out
 
-write %ext-b2d.h out
+write %blend2d-rebol-extension.h out

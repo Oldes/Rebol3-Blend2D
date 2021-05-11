@@ -3,7 +3,7 @@
 // ====================================
 // Use on your own risc!
 
-#include "ext-b2d.h"
+#include "blend2d-rebol-extension.h"
 
 #ifdef TO_WINDOWS
 //#include <windows.h>
