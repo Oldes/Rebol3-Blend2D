@@ -1,0 +1,92 @@
+;~ Siskin project nest file ~;
+github: asmjit/asmjit
+github: blend2d/blend2d
+;github: blend2d/blend2d-samples
+
+compiler: gcc
+needs:    cmake
+#if Windows? [needs: msbuild]
+
+include: %blend2d/src/
+
+b2d-lib: [
+	defines: [
+		;BL_BUILD_STATIC
+		;BL_BUILD_OPT_SSE2
+		;BL_BUILD_OPT_SSE3
+		;BL_BUILD_OPT_SSSE3
+		;BL_BUILD_OPT_SSE4_1
+		;BL_BUILD_OPT_SSE4_2
+		;BL_BUILD_OPT_AVX
+		;BL_BUILD_OPT_AVX2
+		;_UNICODE
+		;ASMJIT_BUILD_EMBED
+		;ASMJIT_BUILD_STATIC
+		;BL_BUILD_TEST
+	]
+]
+
+#if Windows? [ define: _CRT_SECURE_NO_WARNINGS]
+
+rebol3-x86: [
+	arch: x86
+	#if Windows? [
+		defines: [ TO_WIN32 _WIN32 ]
+	]
+]
+rebol3-x64: [
+	arch: x64
+	defines: [
+		_FILE_OFFSET_BITS=64
+		__LP64__ ; has long (integer) 64 bits
+	]
+	#if Windows? [ defines: [ TO_WIN32_X64 _WIN32 ] ]
+	#if Linux?   [ defines: [ TO_LINUX_X64        ] ]
+]
+
+r3-extension: [
+	source: %src/
+	files: only [ %blend2d-rebol-extension.c ]
+	include: [
+		%src/
+		%rebol/src/include/
+	]
+	defines: [ENDIAN_LITTLE]
+	cflags:  [-fpermissive]
+	flags:   [-O2 shared]
+
+	#if Posix? [
+		cflags: [-fPIC -pthread ]
+		;libraries: [%pthread]
+	]
+	do %src/blend2d-rebol-extension.r3 
+]
+
+eggs: only [
+	#if Windows? [
+		"Make 64bit Blend2D static library" [
+			arch: x64
+			cmd %_static/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=TRUE -DASMJIT_DIR=../asmjit/"
+			cmd %_static/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Make 64bit Blend2D dynamic library" [
+			arch: x64
+			cmd %_dynamic/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=FALSE -DASMJIT_DIR=../asmjit/"
+			cmd %_dynamic/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Make Blend2D test" [
+			arch: x64
+			cmd %_test/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_TEST=1"
+			cmd %_test/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Rebol extension" [
+			:r3-extension
+			:rebol3-x64
+			#if Windows? [upx: on]
+
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
+			name: %blend2d-x64
+			libraries: [%_static/Release/blend2d]
+		]
+	]
+]

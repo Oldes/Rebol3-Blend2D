@@ -2,12 +2,10 @@ Rebol [
 	title: "Basic Blend2D extension test"
 ]
 
-; there is a bug in current version (protected draw)
-; extension seems to use it now.. but that will be changed
-unprotect in system/dialects 'draw
+quiet?: system/options/quiet
 
 ; extension handling is still under development!
-unless value? 'b2d [ b2d: import %r3-blend2d-x64.dll ]
+unless value? 'b2d [ b2d: import %blend2d-x64.rebx ]
 
 
 ;- internal built-in test                             
@@ -29,7 +27,7 @@ img: draw 680x380 [
 	scale 0.8 rotate 10 image :plan 50x100
 ]
 save %test-result-01.png img
-view img
+unless quiet? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -52,7 +50,7 @@ img: draw 480x480 [
 	box 240x40 200x400 45.5
 ]
 save %test-result-02.png img
-view img
+unless quiet? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -98,6 +96,6 @@ img: draw 480x480 [
 	line 460x350 360x380 460x380
 ]
 save %test-result-03.png img
-view img
+unless quiet? [view img]
 
-ask "done"
+unless quiet? [ask "done"]

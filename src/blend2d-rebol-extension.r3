@@ -164,7 +164,7 @@ foreach [name spec] commands [
 new-line/all cmd-words false
 new-line/all arg-words false
 append header rejoin [{^/init-words words: } mold cmd-words #" " mold arg-words]
-append header {
+;append header {
 ;system/dialects/draw:
 ;dial-draw: context [
 ;	type-spec:		[block!]

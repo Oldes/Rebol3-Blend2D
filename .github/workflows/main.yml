@@ -1,0 +1,51 @@
+name: 'Rebol-Blend2D CI'
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  windows:
+    strategy:
+      fail-fast: true
+    runs-on: windows-latest
+    shell: bash
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Siskin Builder
+      uses: oldes/install-siskin@v0.3.5
+
+    - name: Build 64bit static Blend2d library
+      run: ./siskin Rebol-Blend2D.nest 1
+
+    - name: Build 64bit Rebol Blend2d extension
+      run: ./siskin Rebol-Blend2D.nest [msvc %blend2d-x64]
+
+    - name: Prepare 64bit Rebol Blend2d extension
+      run: cp ./msvc/Release-x64/blend2d-x64.dll ./blend2d-x64.rebx
+
+    - name: Install Rebol for extension test
+      uses: oldes/install-rebol@v3.5.3
+
+    - name: Test extension
+      run: ./rebol3 test.r3
+
+    ###############################################################################
+    # Collecting build artifacts...
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Rebol-Blend2D-CI-${{github.run_id}}
+        path: ./blend2d-x64.rebx
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Rebol-Blend2D-CI-${{github.run_id}}-test-results
+        path: ./test-result*
+
+ 
