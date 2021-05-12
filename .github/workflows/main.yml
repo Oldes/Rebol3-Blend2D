@@ -33,6 +33,8 @@ jobs:
 
     - name: Install Rebol for extension test
       uses: oldes/install-rebol@v3.5.3
+      with:
+        product: bulk
 
     - name: Test extension
       run:  ./rebol3 test.r3
