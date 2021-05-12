@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: true
     runs-on: windows-latest
-    shell: bash
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -29,13 +29,13 @@ jobs:
       run: ./siskin Rebol-Blend2D.nest [msvc %blend2d-x64]
 
     - name: Prepare 64bit Rebol Blend2d extension
-      run: cp ./msvc/Release-x64/blend2d-x64.dll ./blend2d-x64.rebx
+      run:  COPY .\msvc\Release-x64\blend2d-x64.dll blend2d-x64.rebx
 
     - name: Install Rebol for extension test
       uses: oldes/install-rebol@v3.5.3
 
     - name: Test extension
-      run: ./rebol3 test.r3
+      run:  rebol3 test.r3
 
     ###############################################################################
     # Collecting build artifacts...
