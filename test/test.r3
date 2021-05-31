@@ -1,11 +1,11 @@
 Rebol [
 	title: "Basic Blend2D extension test"
 ]
-
+? system/options/script
 quiet?: system/options/quiet
 
 ; extension handling is still under development!
-unless value? 'b2d [ b2d: import %blend2d-x64.rebx ]
+unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
 
 
 ;- internal built-in test                             
@@ -98,4 +98,24 @@ img: draw 480x480 [
 save %test-result-03.png img
 unless quiet? [view img]
 
+;-----------------------------------------------------
+print [
+	as-red   "[Test 04]:"
+	as-green "fill, cubic, blend and box"
+]
+
+texture: load  %assets/texture.jpeg
+
+img: draw 480x480 [
+	fill 255.0.0
+	circle 180x180 160
+	fill linear 255.255.255 0 95.175.223 0.5 47.95.223 1 0x480 0x0
+	;blend DIFFERENCE
+	box 195x195 270x270 25
+]
+view img
+save %test-result-04.png img
+unless quiet? [view img]
+
 unless quiet? [ask "done"]
+wait 3
