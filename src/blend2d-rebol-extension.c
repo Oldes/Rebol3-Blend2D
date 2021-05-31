@@ -9,16 +9,18 @@
 //#include <windows.h>
 #endif
 
-#include <stdio.h> //TODO: remove stdio once not needed
-
-//#define USE_TRACES
+#define USE_TRACES
 #ifdef  USE_TRACES
+#include <stdio.h>
 #define debug_print(fmt, ...) do { printf(fmt, __VA_ARGS__); } while (0)
 #define trace(str) puts(str)
 #else
 #define debug_print(fmt, ...)
 #define trace(str) 
 #endif
+
+#define DOUBLE_BUFFER_SIZE 16
+#define ARG_BUFFER_SIZE 8
 
 const double pi1 = 3.14159265358979323846; 
 
@@ -136,8 +138,8 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	BLFontCore font;
 	BLFontFaceCore font_face;
 
-	REBSER *buffer = RL_MAKE_BINARY(((16 * sizeof(double))-1)); //TODO: could be reused per context
-	REBDEC *doubles = (REBDEC*)SERIES_DATA(buffer); // array of double values used to pass data to various B2D functions
+	REBDEC doubles[DOUBLE_BUFFER_SIZE];
+	RXIARG arg[ARG_BUFFER_SIZE];
 
 	BLContextCore ctx;
 	REBXYF size;
@@ -147,13 +149,62 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	REBCNT err = 0;
 	REBSER *cmds;
 	REBCNT index, cmd_pos, cmd, type, cap, mode, count, i;
-	RXIARG arg, arg1, arg2, arg3;
 	REBOOL has_fill = FALSE, has_stroke = FALSE;
 	REBDEC x, y, width = 1;
 	BLRect rect;
 	BLRectI rectI;
 	BLPoint pt;
 	REBDEC font_size = 10.0;
+
+#define RESOLVE_ARG(a) type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[a]);
+
+#define RESOLVE_PAIR_ARG(a, d) RESOLVE_ARG(a) \
+	if (type != RXT_PAIR) goto error; \
+	doubles[d]   = arg[a].pair.x; \
+	doubles[d+1] = arg[a].pair.y;
+
+#define RESOLVE_PAIR_ARG_OPTIONAL(a, d) RESOLVE_ARG(a) \
+	if (type == RXT_PAIR) { \
+		doubles[d]   = arg[a].pair.x; \
+		doubles[d+1] = arg[a].pair.y; \
+	} else { type = NULL; index--; }
+
+#define RESOLVE_INT_ARG(a) RESOLVE_ARG(a) \
+	if (type != RXT_INTEGER) goto error;
+
+#define RESOLVE_INT_ARG_OPTIONAL(a) RESOLVE_ARG(a) \
+	if (type != RXT_INTEGER) {type = NULL; index--; }
+
+#define RESOLVE_NUMBER_ARG(a, d) RESOLVE_ARG(a) \
+	if (type == RXT_DECIMAL || type == RXT_PERCENT) doubles[d] = arg[a].dec64; \
+	else if (type == RXT_INTEGER) doubles[d] = (double)arg[a].int64; \
+	else goto error;
+
+#define RESOLVE_NUMBER_ARG_OPTIONAL(a, d) RESOLVE_ARG(a) \
+	if (type == RXT_DECIMAL || type == RXT_PERCENT) doubles[d] = arg[a].dec64; \
+	else if (type == RXT_INTEGER) doubles[d] = (double)arg[a].int64; \
+	else { type = NULL; index--;}
+
+#define RESOLVE_NUMBER_OR_PAIR_ARG(a, d) RESOLVE_ARG(a) \
+	if (type == RXT_DECIMAL || type == RXT_PERCENT) doubles[d] = doubles[d+1] = arg[a].dec64; \
+	else if (type == RXT_INTEGER) doubles[d] = doubles[d+1] = (double)arg[a].int64; \
+	else if (type == RXT_PAIR) {\
+		doubles[d]   = arg[a].pair.x; \
+		doubles[d+1] = arg[a].pair.y; \
+	} else goto error;
+
+#define RESOLVE_STRING_ARG(a) RESOLVE_ARG(a) \
+	if (type != RXT_STRING) goto error;
+
+#define GET_PAIR(a, d) RESOLVE_ARG(a) \
+	if (type != RXT_PAIR) goto error; \
+	doubles[d]   = arg[a].pair.x; \
+	doubles[d+1] = arg[a].pair.y;
+
+#define DRAW_GEOMETRY(ctx, mode, path) \
+	if (has_fill  ) blContextFillGeometry  (&ctx, mode, path);\
+	if (has_stroke) blContextStrokeGeometry(&ctx, mode, path);
+
 
 	blPathInit(&path);
 	blImageInit(&img_target);
@@ -200,15 +251,15 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 		case W_B2D_CMD_FILL	:
 		case W_B2D_CMD_FILL_PEN:
 
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+			RESOLVE_ARG(0)
 			if (RXT_TUPLE == type) {
-				blContextSetFillStyleRgba32(&ctx, TUPLE_TO_COLOR(arg));
+				blContextSetFillStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_fill = TRUE;
 			} else if (type == RXT_LOGIC) {
-				if(!arg.int32a) has_fill = FALSE;
+				if(!arg[0].int32a) has_fill = FALSE;
 			} else if (type == RXT_IMAGE) {
 				blImageInit(&img_pattern);
-				r = blImageCreateFromData(&img_pattern, arg.width, arg.height, BL_FORMAT_PRGB32, ((REBSER*)arg.series)->data, (intptr_t)arg.width * 4, NULL, NULL);
+				r = blImageCreateFromData(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
 				if (r != BL_SUCCESS) {
 					trace("failed to init pattern image!");
 					goto error;
@@ -230,32 +281,18 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				blGradientInit(&gradient);
 				blGradientCreate(&gradient, mode, doubles, 1, NULL, 0, NULL);
 				//blGradientSetExtendMode(&gradient, 1);
-				type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+				RESOLVE_ARG(0)
 				while (type == RXT_TUPLE) {
-					type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg2);
-					if (type == RXT_DECIMAL || type == RXT_PERCENT) offset = arg2.dec64;
-					else if (type == RXT_INTEGER) offset = (double)arg2.int64;
-					else goto error;
-
+					RESOLVE_NUMBER_ARG(2, 1);
+					offset = doubles[1];
 					//debug_print("gradstop: %lf\n", offset);
-					blGradientAddStopRgba32(&gradient, offset, TUPLE_TO_COLOR(arg));
-
-					type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+					blGradientAddStopRgba32(&gradient, offset, TUPLE_TO_COLOR(arg[0]));
+					RESOLVE_ARG(0)
 				}
 				index--;
 
-				type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
-				if (type == RXT_PAIR) {
-					doubles[0] = (double)arg.pair.x;
-					doubles[1] = (double)arg.pair.y;
-					index++;
-				}
-				type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
-				if (type == RXT_PAIR) {
-					doubles[2] = (double)arg.pair.x;
-					doubles[3] = (double)arg.pair.y;
-					index++;
-				}
+				RESOLVE_PAIR_ARG(0, 0)
+				RESOLVE_PAIR_ARG(0, 2)
 				blGradientSetValues(&gradient, 0, doubles, 4);
 				blContextSetFillStyleObject(&ctx, &gradient);
 				has_fill = TRUE;
@@ -266,16 +303,15 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 
 		case W_B2D_CMD_PEN:
-
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+			RESOLVE_ARG(0)
 			if (RXT_TUPLE == type) {
-				blContextSetStrokeStyleRgba32(&ctx, TUPLE_TO_COLOR(arg));
+				blContextSetStrokeStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_stroke = TRUE;
 			} else if (type == RXT_LOGIC) {
-				if(!arg.int32a) has_stroke = FALSE;
+				if(!arg[0].int32a) has_stroke = FALSE;
 			} else if (type == RXT_IMAGE) {
 				blImageInit(&img_pattern);
-				r = blImageCreateFromData(&img_pattern, arg.width, arg.height, BL_FORMAT_PRGB32, ((REBSER*)arg.series)->data, (intptr_t)arg.width * 4, NULL, NULL);
+				r = blImageCreateFromData(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
 				if (r != BL_SUCCESS) {
 					trace("failed to init pattern image!");
 					goto error;
@@ -298,24 +334,23 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_LINE:
 			if (has_stroke) {
-				type = RL_GET_VALUE(cmds, index++, &arg);
-				//debug_print("line type %i %i\n", type, RXT_VECTOR);
+				RESOLVE_ARG(0)
 				if (RXT_PAIR == type) {
-					blPathMoveTo(&path, (double)arg.pair.x, (double)arg.pair.y);
-					type = RL_GET_VALUE(cmds, index, &arg);
+					blPathMoveTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+					type = RL_GET_VALUE(cmds, index, &arg[0]);
 					while (RXT_PAIR == type) {
-						blPathLineTo(&path, (double)arg.pair.x, (double)arg.pair.y);
-						type = RL_GET_VALUE(cmds, ++index, &arg);
+						blPathLineTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+						type = RL_GET_VALUE(cmds, ++index, &arg[0]);
 					}
 				}
 				else if (RXT_VECTOR == type) {
-					REBSER *ser_points = arg.series;
+					REBSER *ser_points = arg[0].series;
 					if (VTSF64 != VECT_TYPE(ser_points)) goto error;
 					REBCNT cnt_points = SERIES_LEN(ser_points)-1;
 					REBDEC *points = (REBDEC*)SERIES_DATA(ser_points);
-					type = RL_GET_VALUE(cmds, index++, &arg);
+					type = RL_GET_VALUE(cmds, index++, &arg[0]);
 					if (RXT_VECTOR != type) goto error;
-					REBSER *ser_edges = arg.series;
+					REBSER *ser_edges = arg[0].series;
 					if (VTSI32 != VECT_TYPE(ser_edges)) goto error;
 					REBINT *edges = (REBINT *)SERIES_DATA(ser_edges);
 					REBCNT prev = 0;
@@ -343,18 +378,74 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			break;
 
+		case W_B2D_CMD_LINE_WIDTH:
+
+			RESOLVE_NUMBER_ARG(0, 0)
+			width = doubles[0];
+
+			if (width == 0) {
+				has_stroke = FALSE;
+			}
+			else {
+				has_stroke = TRUE;
+				blContextSetStrokeWidth(&ctx, width);
+			}
+			break;
+
+		case W_B2D_CMD_LINE_JOIN:
+			if (fetch_mode(cmds, index, &mode, W_B2D_ARG_MITER, 3)) {
+				index++;
+				switch (mode) {
+				case  0: // mitter, check for bevel or round variant
+					if (fetch_mode(cmds, index, &mode, W_B2D_ARG_BEVEL, 2)) {
+						index++;
+						type = mode + 1; //BL_STROKE_JOIN_MITER_BEVEL or BL_STROKE_JOIN_MITER_ROUND
+					}
+					else {
+						type = BL_STROKE_JOIN_MITER_CLIP;
+					}
+					break;
+				case  1: type = BL_STROKE_JOIN_BEVEL; break;
+				default: type = BL_STROKE_JOIN_ROUND;
+				}
+			}
+			else goto error;
+			//debug_print("StrokeJoin: %u\n", type);
+			blContextSetStrokeJoin(&ctx, type);
+			break;
+
+		case W_B2D_CMD_LINE_CAP:
+
+			//TODO: use words instead of integers?
+			RESOLVE_INT_ARG(0);
+			cap = arg[0].int64;
+			if (cap >= BL_STROKE_CAP_COUNT) goto error; //invalid cap value
+			
+			RESOLVE_INT_ARG_OPTIONAL(1); // end cap
+			if (RXT_INTEGER == type) {
+				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_START, cap);
+				cap = arg[1].int64;
+				if (cap >= BL_STROKE_CAP_COUNT) {
+					//invalid cap value
+				}
+				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_END, cap);
+			}
+			else {
+				blContextSetStrokeCaps(&ctx, cap);
+			}
+			break;
 
 		case W_B2D_CMD_CUBIC:
 
-			type = RL_GET_VALUE(cmds, index++, &arg);
+			type = RL_GET_VALUE(cmds, index++, &arg[0]);
 			if (RXT_PAIR == type) {
-				blPathMoveTo(&path, (double)arg.pair.x, (double)arg.pair.y);
+				blPathMoveTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
 			} else goto error;
-			while (FETCH_3_PAIRS(cmds, index, arg1, arg2, arg3)) {
+			while (FETCH_3_PAIRS(cmds, index, arg[1], arg[2], arg[3])) {
 				r = blPathCubicTo(&path,
-					(double)arg1.pair.x, (double)arg1.pair.y,
-					(double)arg2.pair.x, (double)arg2.pair.y,
-					(double)arg3.pair.x, (double)arg3.pair.y
+					(double)arg[1].pair.x, (double)arg[1].pair.y,
+					(double)arg[2].pair.x, (double)arg[2].pair.y,
+					(double)arg[3].pair.x, (double)arg[3].pair.y
 				);
 				index += 3;
 			}
@@ -367,22 +458,15 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_POLYGON:
 			
-			type = RL_GET_VALUE(cmds, index++, &arg);
-			if (RXT_PAIR == type) {
-				x = (double)arg.pair.x;
-				y = (double)arg.pair.y;
-				blPathMoveTo(&path, x, y);
-			} else goto error;
-
-			REBCNT limit = SERIES_REST(buffer) / sizeof(double);
-			//debug_print("series rest: %u limit: %u\n", SERIES_REST(buffer), limit);
+			RESOLVE_PAIR_ARG(0, 0)
+			blPathMoveTo(&path, doubles[0], doubles[1]);
 			count = 0; i = 0;
-			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg)) {
+			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0])) {
 				index++;
 				count++;
-				doubles[i++] = arg.pair.x;
-				doubles[i++] = arg.pair.y;
-				if(i > limit) {
+				doubles[i++] = arg[0].pair.x;
+				doubles[i++] = arg[0].pair.y;
+				if(i > DOUBLE_BUFFER_SIZE) {
 					// we could extend the buffer here, or just continue processing in batches and save little memory.
 					blPathPolyTo(&path, (BLPoint*)doubles, count);
 					count = 0; i = 0;
@@ -390,122 +474,69 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			if (count > 0) blPathPolyTo(&path, (BLPoint*)doubles, count);
 			blPathClose(&path);
-
 			
-			if (has_fill) blContextFillGeometry(&ctx, BL_GEOMETRY_TYPE_PATH , &path);
-			if (has_stroke) blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_PATH , &path);
+			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path)
 			blPathReset(&path);
 			break;
 
 
 		case W_B2D_CMD_BOX:
 
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type != RXT_PAIR) goto error;
-			// bottom-right:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg1);
-			if (type != RXT_PAIR) goto error;
-			doubles[0] = arg.pair.x;
-			doubles[1] = arg.pair.y;
-			doubles[2] = arg1.pair.x; // - doubles[0];
-			doubles[3] = arg1.pair.y; // - doubles[1];
-			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg2);
+			RESOLVE_PAIR_ARG(0, 0)
+			RESOLVE_PAIR_ARG(1, 2) // bottom-right
+			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[2]);
 			if (type == RXT_DECIMAL || type == RXT_INTEGER) {
 				index++;
 				mode = BL_GEOMETRY_TYPE_ROUND_RECT;
-				doubles[4] = arg2.dec64;
-				type = RL_GET_VALUE_RESOLVED(cmds, index, &arg3);
+				doubles[4] = (type == RXT_DECIMAL) ? arg[2].dec64 : (double)arg[2].int64;
+				type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[3]);
 				if (type == RXT_DECIMAL || type == RXT_INTEGER) {
 					index++;
-					doubles[5] = arg3.dec64;
+					doubles[5] = (type == RXT_DECIMAL) ? arg[3].dec64 : (double)arg[3].int64;
 				}
 				else {
-					doubles[5] = arg2.dec64;
+					doubles[5] = doubles[4];
 				}
 			} else {
 				mode = BL_GEOMETRY_TYPE_RECTD;
 			}
-			//debug_print("box type: %u size: %f %f %f %f radius: %f\n", mode, doubles[0],doubles[1],doubles[2],doubles[3], doubles[4]);
-			if (has_fill) blContextFillGeometry(&ctx, mode, doubles);
-			if (has_stroke) blContextStrokeGeometry(&ctx, mode, doubles);
+			//debug_print("box type: %u size: %f %f %f %f radius: %f %f\n", mode, doubles[0],doubles[1],doubles[2],doubles[3], doubles[4], doubles[5]);
+			DRAW_GEOMETRY(ctx, mode, doubles);
 			break;
 
 
 		case W_B2D_CMD_CIRCLE:
 
-			// center:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (RXT_PAIR == type) {
-				doubles[0] = arg.pair.x;
-				doubles[1] = arg.pair.y;
-			} else goto error;
-
-			// radius or radius-x:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_INTEGER) doubles[2] = (double)arg.int64;
-			else if (type == RXT_DECIMAL) doubles[2] = arg.dec64;
-			else goto error;
-
-			// optional radius-y:
-			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
-			if (type == RXT_INTEGER || type == RXT_DECIMAL) {
-				index++;
-				doubles[3] = type == RXT_INTEGER ? (double)arg.int64 : arg.dec64;
-				if (has_fill) blContextFillGeometry(&ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
-				if (has_stroke) blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
+			RESOLVE_PAIR_ARG(0, 0)   // center
+			RESOLVE_NUMBER_ARG(1, 2) // radius or radius-x
+			RESOLVE_NUMBER_ARG_OPTIONAL(2, 3)  // radius-y
+			if (type) {
+				DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
 			}
 			else {
-				if (has_fill) blContextFillGeometry(&ctx, BL_GEOMETRY_TYPE_CIRCLE, doubles);
-				if (has_stroke) blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_CIRCLE, doubles);
+				DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, doubles);
 			}
 			break;
 
 
 		case W_B2D_CMD_ELLIPSE:
 
-			// top-left:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type != RXT_PAIR) goto error;
-			// size:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg1);
-			if (type != RXT_PAIR) goto error;
-
-			doubles[2] = arg1.pair.x * 0.5;
-			doubles[3] = arg1.pair.y * 0.5;
-			doubles[0] = arg.pair.x + doubles[2];
-			doubles[1] = arg.pair.y + doubles[3];
-
-			if (has_fill) blContextFillGeometry(&ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
-			if (has_stroke) blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
-
+			RESOLVE_PAIR_ARG(0, 0) // top-left
+			RESOLVE_PAIR_ARG(1, 2) // size
+			doubles[2] *= 0.5;
+			doubles[3] *= 0.5;
+			doubles[0] += doubles[2];
+			doubles[1] += doubles[3];
+			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
 			break;
 
 		
 		case W_B2D_CMD_ARC:
 
-			// center:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type != RXT_PAIR) goto error;
-			// radius:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg1);
-			if (type != RXT_PAIR) goto error;
-
-			doubles[0] = arg.pair.x;
-			doubles[1] = arg.pair.y;
-			doubles[2] = arg1.pair.x;
-			doubles[3] = arg1.pair.y;
-
-			// begin:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_INTEGER) doubles[4] = (double)arg.int64;
-			else if (type == RXT_DECIMAL) doubles[4] = arg.dec64;
-			else goto error;
-
-			// sweep:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_INTEGER) doubles[5] = (double)arg.int64;
-			else if (type == RXT_DECIMAL) doubles[5] = arg.dec64;
-			else goto error;
+			RESOLVE_PAIR_ARG(0, 0)    // center
+			RESOLVE_PAIR_ARG(1, 2)    // radius
+			RESOLVE_NUMBER_ARG(2, 4); // begin
+			RESOLVE_NUMBER_ARG(3, 5); // sweep
 
 			doubles[4] *= pi1 / 180.0; // to radians
 			doubles[5] *= pi1 / 180.0; // to radians
@@ -519,8 +550,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			else {
 				type = BL_GEOMETRY_TYPE_ARC;
 			}
-			if (has_fill) blContextFillGeometry(&ctx, type, doubles);
-			if (has_stroke) blContextStrokeGeometry(&ctx, type, doubles);
+			DRAW_GEOMETRY(ctx, type, doubles);
 
 			break;
 
@@ -528,9 +558,9 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 		case W_B2D_CMD_IMAGE:
 
 			blImageInit(&img);
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_IMAGE) {
-				r = blImageCreateFromData(&img, arg.width, arg.height, BL_FORMAT_PRGB32, ((REBSER*)arg.series)->data, (intptr_t)arg.width * 4, NULL, NULL);
+				r = blImageCreateFromData(&img, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
 				if (r != BL_SUCCESS) {
 					trace("failed to init image!");
 					goto error;
@@ -539,7 +569,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			else if (type == RXT_FILE) {
 				BLArrayCore codecs;
 				blImageCodecArrayInitBuiltInCodecs(&codecs);
-				r = blImageReadFromFile(&img, ((REBSER*)arg.series)->data, &codecs);
+				r = blImageReadFromFile(&img, ((REBSER*)arg[0].series)->data, &codecs);
 				if (r != BL_SUCCESS) {
 					trace("failed to load image!");
 					goto end_ctx; //error!
@@ -547,28 +577,27 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			else goto error;
 
-			// image area (could be used for texture atlas):
+			RESOLVE_PAIR_ARG(1, 0) // image area (could be used for texture atlas)
 			rectI.x = 0;
 			rectI.y = 0;
-			rectI.w = (double)arg.width;
-			rectI.h = (double)arg.height;
+			rectI.w = doubles[0]; // width
+			rectI.h = doubles[1]; // height
 			
-			// top-left:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (RXT_PAIR != type) goto error;
-			pt.x = (double)arg.pair.x;
-			pt.y = (double)arg.pair.y;
+			
+			RESOLVE_PAIR_ARG(2, 0) // top-left
+			pt.x = doubles[0]; // x
+			pt.y = doubles[1]; // y
 
 			// bottom-right (optional):
 			REBOOL scaleImage = FALSE;
 			
-			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
+			RESOLVE_PAIR_ARG_OPTIONAL(3, 0)
 			if (type == RXT_PAIR) {
 				scaleImage = TRUE;
 				rect.x = pt.x;
 				rect.y = pt.y;
-				rect.w = (double)arg.pair.x;
-				rect.h = (double)arg.pair.y;
+				rect.w = doubles[0];
+				rect.h = doubles[1];
 				index++;
 			}
 			//debug_print("blitImage size: %i %i at: %f %f\n",  rectI.w, rectI.h, pt.x, pt.y);
@@ -581,12 +610,11 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			blImageReset(&img);
 			break;
 
-
 		case W_B2D_CMD_FONT:
 
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_FILE || type == RXT_STRING) {
-				REBSER *src = arg.series;
+				REBSER *src = arg[0].series;
 				REBSER *file = RL_ENCODE_UTF8_STRING(SERIES_DATA(src), SERIES_TAIL(src), SERIES_WIDE(src)>1, FALSE);
 				r = blFontFaceCreateFromFile(&font_face, SERIES_DATA(file), BL_FILE_READ_MMAP_ENABLED | BL_FILE_READ_MMAP_AVOID_SMALL);
 				debug_print("r: %i\n", r);
@@ -623,18 +651,14 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_TEXT:
 
-			// position:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (RXT_PAIR == type) {
-				pt.x = (double)arg.pair.x;
-				pt.y = (double)arg.pair.y;
-			} else goto error;
+			RESOLVE_PAIR_ARG(0, 0) // position
+			pt.x = doubles[0];
+			pt.y = doubles[1];
 			// size (optional):
-			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
 			sz = 0.0;
-			if (RXT_DECIMAL == type || RXT_INTEGER == type) {
-				sz = (RXT_DECIMAL == type) ? arg.dec64 : (double)arg.int64;
-				type = RL_GET_VALUE_RESOLVED(cmds, ++index, &arg);
+			RESOLVE_NUMBER_ARG_OPTIONAL(1, 3);
+			if (type) {
+				sz = doubles[3];
 #ifdef TO_WINDOWS
 				sz = (sz * 96.0) / 72.0;
 #endif
@@ -649,153 +673,45 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				debug_print("fmm: %f %f %f %f\n", fmm.m00, fmm.m01, fmm.m10, fmm.m11);
 			}
 
-			// text:
-			if (RXT_STRING == type) {
-				index++;
-				BLGlyphBufferCore gb;
-				blGlyphBufferInit(&gb);
-				REBSER *str = (REBSER*)arg.series;
-				debug_print("txt: %s\n", SERIES_DATA(str));
-				blGlyphBufferSetText(&gb, SERIES_DATA(str), SERIES_LEN(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
-				BLTextMetrics tm;
-				blFontGetTextMetrics(&font, &gb, &tm);
-				debug_print("siz: %f %f %f %f\n", tm.boundingBox.x0, tm.boundingBox.y0, tm.boundingBox.x1, tm.boundingBox.y1);
+			RESOLVE_STRING_ARG(3) // text:
 
+			BLGlyphBufferCore gb;
+			blGlyphBufferInit(&gb);
+			REBSER *str = (REBSER*)arg[3].series;
+			debug_print("txt: %s\n", SERIES_DATA(str));
+			blGlyphBufferSetText(&gb, SERIES_DATA(str), SERIES_LEN(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
+			BLTextMetrics tm;
+			blFontGetTextMetrics(&font, &gb, &tm);
+			debug_print("siz: %f %f %f %f\n", tm.boundingBox.x0, tm.boundingBox.y0, tm.boundingBox.x1, tm.boundingBox.y1);
 
-				blContextFillTextD(&ctx, &pt, &font, SERIES_DATA(str), SERIES_TAIL(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
-				blGlyphBufferReset(&gb);
-			} else goto error;
+			blContextFillTextD(&ctx, &pt, &font, SERIES_DATA(str), SERIES_TAIL(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
+			blGlyphBufferReset(&gb);
+
 			break;
-
-
-		case W_B2D_CMD_LINE_WIDTH:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_DECIMAL) width = arg.dec64;
-			else if (type == RXT_INTEGER) width = (double)arg.int64;
-			else goto error;
-
-			if (width == 0) {
-				has_stroke = FALSE;
-			} else {
-				has_stroke = TRUE;
-				blContextSetStrokeWidth(&ctx, width);
-			}
-			break;
-
-
-		case W_B2D_CMD_LINE_JOIN:
-			if (fetch_mode(cmds, index, &mode, W_B2D_ARG_MITER, 3)) {
-				index++;
-				switch (mode) {
-				case  0: // mitter, check for bevel or round variant
-					if (fetch_mode(cmds, index, &mode, W_B2D_ARG_BEVEL, 2)) {
-						index++;
-						type = mode + 1; //BL_STROKE_JOIN_MITER_BEVEL or BL_STROKE_JOIN_MITER_ROUND
-					} else {
-						type = BL_STROKE_JOIN_MITER_CLIP;
-					}
-					break;
-				case  1: type = BL_STROKE_JOIN_BEVEL; break;
-				default: type = BL_STROKE_JOIN_ROUND;
-				}
-			} else goto error;
-			//debug_print("StrokeJoin: %u\n", type);
-			blContextSetStrokeJoin(&ctx, type);
-			break;
-
-
-		case W_B2D_CMD_LINE_CAP:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-
-			cap = BL_STROKE_CAP_COUNT;
-			if (RXT_INTEGER == type) cap = arg.int64;
-			if (cap >= BL_STROKE_CAP_COUNT) goto error; //invalid cap value
-			type = RL_GET_VALUE(cmds, index++, &arg);
-			if (RXT_INTEGER == type) {
-				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_START, cap);
-				cap = arg.int64;
-				if (cap >= BL_STROKE_CAP_COUNT) {
-					//invalid cap value
-				}
-				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_END, cap);
-			}
-			else {
-				blContextSetStrokeCaps(&ctx, cap);
-			}
-			break;
-
-		case W_B2D_CMD_RESET_MATRIX:
-			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_RESET, NULL);
-			break;
-
-
-		case W_B2D_CMD_ROTATE:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_DECIMAL) doubles[0] = arg.dec64;
-			else if (type == RXT_INTEGER) doubles[0] = (double)arg.int64;
-			else goto error;
-			doubles[0] *= pi1 / 180.0; // to radians
-
-			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg);
-
-			if (type == RXT_PAIR) {
-				index++;
-				doubles[1] = arg.pair.x;
-				doubles[2] = arg.pair.y;
-				blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_ROTATE_PT, doubles);
-			}
-			else {
-				//debug_print("roatate: %f\n", doubles[0]);
-				blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_ROTATE, doubles);
-			}
-			break;
-
 
 		case W_B2D_CMD_SCALE:
-
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_DECIMAL || type == RXT_PERCENT) doubles[0] = doubles[1] = arg.dec64;
-			else if (type == RXT_INTEGER) doubles[0] = doubles[1] = (double)arg.int64;
-			else if (type == RXT_PAIR) {
-				doubles[0] = arg.pair.x;
-				doubles[1] = arg.pair.y;
-			}
-			else goto error;
-
+			RESOLVE_NUMBER_OR_PAIR_ARG(0, 0);
 			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_SCALE, doubles);
-
 			break;
 
 
 		case W_B2D_CMD_TRANSLATE:
-
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_PAIR) {
-				doubles[0] = arg.pair.x;
-				doubles[1] = arg.pair.y;
-			}
-			else goto error;
-
+			RESOLVE_PAIR_ARG(0, 0);
 			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_TRANSLATE, doubles);
-
 			break;
 
-
 		case W_B2D_CMD_ALPHA:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
-			if (type == RXT_DECIMAL || type == RXT_PERCENT) alpha = arg.dec64;
-			else if (type == RXT_INTEGER) alpha = (double)arg.int64;
-			else goto error;
-			//debug_print("setting alpha: %lf\n", alpha);
-			blContextSetGlobalAlpha(&ctx, alpha);
+			RESOLVE_NUMBER_ARG(0, 0);
+			debug_print("setting alpha: %lf\n", doubles[0]);
+			blContextSetGlobalAlpha(&ctx, doubles[0]);
 			break;
 
 		case W_B2D_CMD_BLEND:
 		case W_B2D_CMD_COMPOSITE:
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg);
+			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (fetch_mode(cmds, index - 1, &mode, W_B2D_ARG_SOURCE_OVER, BL_COMP_OP_COUNT)) {
 				blContextSetCompOp(&ctx, mode);
-			} else if (RXT_NONE == type || (RXT_LOGIC == type && !arg.int32a)) { // blend none or blend off
+			} else if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) { // blend none or blend off
 				blContextSetCompOp(&ctx, BL_COMP_OP_SRC_OVER);
 			} else goto error;
 			break;
