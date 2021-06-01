@@ -4,14 +4,14 @@
 // Use on your own risc!
 
 #include "blend2d-rebol-extension.h"
+#include <stdio.h> // used in b2d_info function
 
 #ifdef TO_WINDOWS
 //#include <windows.h>
 #endif
 
-#define USE_TRACES
+//#define USE_TRACES
 #ifdef  USE_TRACES
-#include <stdio.h>
 #define debug_print(fmt, ...) do { printf(fmt, __VA_ARGS__); } while (0)
 #define trace(str) puts(str)
 #else
@@ -279,8 +279,8 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			} else if (RXT_UNSET == type && fetch_mode(cmds, index-1, &mode, W_B2D_ARG_LINEAR, BL_GRADIENT_TYPE_COUNT)) {
 				// gradient fill
 				blGradientInit(&gradient);
-				blGradientCreate(&gradient, mode, doubles, 1, NULL, 0, NULL);
-				//blGradientSetExtendMode(&gradient, 1);
+				blGradientCreate(&gradient, mode, doubles, 0, NULL, 0, NULL);
+				//blGradientSetExtendMode(&gradient, 0);
 				RESOLVE_ARG(0)
 				while (type == RXT_TUPLE) {
 					RESOLVE_NUMBER_ARG(2, 1);
@@ -291,9 +291,15 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				}
 				index--;
 
-				RESOLVE_PAIR_ARG(0, 0)
-				RESOLVE_PAIR_ARG(0, 2)
-				blGradientSetValues(&gradient, 0, doubles, 4);
+				RESOLVE_PAIR_ARG(0, 0);
+				RESOLVE_PAIR_ARG(0, 2);
+				if (mode == BL_GRADIENT_TYPE_RADIAL) {
+					RESOLVE_NUMBER_ARG(3, 4);
+					blGradientSetValues(&gradient, 0, doubles, 5);
+				}
+				else {
+					blGradientSetValues(&gradient, 0, doubles, 4);
+				}
 				blContextSetFillStyleObject(&ctx, &gradient);
 				has_fill = TRUE;
 				blGradientReset(&gradient);
@@ -466,7 +472,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				count++;
 				doubles[i++] = arg[0].pair.x;
 				doubles[i++] = arg[0].pair.y;
-				if(i > DOUBLE_BUFFER_SIZE) {
+				if(i >= DOUBLE_BUFFER_SIZE) {
 					// we could extend the buffer here, or just continue processing in batches and save little memory.
 					blPathPolyTo(&path, (BLPoint*)doubles, count);
 					count = 0; i = 0;
@@ -577,21 +583,21 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			else goto error;
 
-			RESOLVE_PAIR_ARG(1, 0) // image area (could be used for texture atlas)
+			// image area (could be used for texture atlas)
 			rectI.x = 0;
 			rectI.y = 0;
-			rectI.w = doubles[0]; // width
-			rectI.h = doubles[1]; // height
+			rectI.w = arg[0].width;
+			rectI.h = arg[0].height;
 			
 			
-			RESOLVE_PAIR_ARG(2, 0) // top-left
+			RESOLVE_PAIR_ARG(1, 0) // top-left
 			pt.x = doubles[0]; // x
 			pt.y = doubles[1]; // y
 
 			// bottom-right (optional):
 			REBOOL scaleImage = FALSE;
 			
-			RESOLVE_PAIR_ARG_OPTIONAL(3, 0)
+			RESOLVE_PAIR_ARG_OPTIONAL(2, 0)
 			if (type == RXT_PAIR) {
 				scaleImage = TRUE;
 				rect.x = pt.x;
@@ -694,15 +700,24 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_SCALE, doubles);
 			break;
 
+		case W_B2D_CMD_ROTATE:
+			RESOLVE_NUMBER_ARG(0, 0);
+			doubles[0] *= pi1 / 180.0; // to radians
+			RESOLVE_PAIR_ARG_OPTIONAL(1, 1);
+			blContextMatrixOp(&ctx, type ? BL_MATRIX2D_OP_POST_ROTATE_PT : BL_MATRIX2D_OP_POST_ROTATE, doubles);
+			break;
 
 		case W_B2D_CMD_TRANSLATE:
 			RESOLVE_PAIR_ARG(0, 0);
 			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_TRANSLATE, doubles);
 			break;
 
+		case W_B2D_CMD_RESET_MATRIX:
+			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_RESET, NULL);
+			break;
+
 		case W_B2D_CMD_ALPHA:
 			RESOLVE_NUMBER_ARG(0, 0);
-			debug_print("setting alpha: %lf\n", doubles[0]);
 			blContextSetGlobalAlpha(&ctx, doubles[0]);
 			break;
 
@@ -710,6 +725,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 		case W_B2D_CMD_COMPOSITE:
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (fetch_mode(cmds, index - 1, &mode, W_B2D_ARG_SOURCE_OVER, BL_COMP_OP_COUNT)) {
+				debug_print("mode: %i\n", mode);
 				blContextSetCompOp(&ctx, mode);
 			} else if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) { // blend none or blend off
 				blContextSetCompOp(&ctx, BL_COMP_OP_SRC_OVER);
@@ -718,6 +734,23 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_FILL_ALL:
 			blContextFillAll(&ctx);
+			break;
+
+		case W_B2D_CMD_CLIP:
+			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[0]);
+			if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) {
+				puts("clipoff");
+				blContextRestoreClipping(&ctx);
+			}
+			else {
+				RESOLVE_PAIR_ARG(0, 0);
+				RESOLVE_PAIR_ARG(1, 2);
+				rect.x = doubles[0];
+				rect.y = doubles[1];
+				rect.w = doubles[2] - doubles[0];
+				rect.h = doubles[3] - doubles[1];
+				blContextClipToRectD(&ctx, &rect);
+			}
 			break;
 
 		default:

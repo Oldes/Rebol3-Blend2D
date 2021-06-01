@@ -33,6 +33,8 @@ cmd-words: [
 	scale
 	translate
 
+	clip
+
 	font
 	;- aliases (for compatibility)
 	fill-pen ; alias for `fill` 
@@ -68,20 +70,21 @@ arg-words: [
 	clear            ; BL_COMP_OP_CLEAR = 11,
 	plus             ; BL_COMP_OP_PLUS = 12,
 	minus            ; BL_COMP_OP_MINUS = 13,
-	multiply         ; BL_COMP_OP_MULTIPLY = 14,
-	screen           ; BL_COMP_OP_SCREEN = 15,
-	overlay          ; BL_COMP_OP_OVERLAY = 16,
-	darken           ; BL_COMP_OP_DARKEN = 17,
-	lighten          ; BL_COMP_OP_LIGHTEN = 18,
-	color-dodge      ; BL_COMP_OP_COLOR_DODGE = 19,
-	color-burn       ; BL_COMP_OP_COLOR_BURN = 20,
-	linear-burn      ; BL_COMP_OP_LINEAR_BURN = 21,
-	linear-light     ; BL_COMP_OP_LINEAR_LIGHT = 22,
-	pin-light        ; BL_COMP_OP_PIN_LIGHT = 23,
-	hard-light       ; BL_COMP_OP_HARD_LIGHT = 24,
-	soft-light       ; BL_COMP_OP_SOFT_LIGHT = 25,
-	difference       ; BL_COMP_OP_DIFFERENCE = 26,
-	exclusion        ; BL_COMP_OP_EXCLUSION = 27,
+	modulate         ; BL_COMP_OP_MODULATE = 14,
+	multiply         ; BL_COMP_OP_MULTIPLY = 15,
+	screen           ; BL_COMP_OP_SCREEN = 16,
+	overlay          ; BL_COMP_OP_OVERLAY = 17,
+	darken           ; BL_COMP_OP_DARKEN = 18,
+	lighten          ; BL_COMP_OP_LIGHTEN = 19,
+	color-dodge      ; BL_COMP_OP_COLOR_DODGE = 20,
+	color-burn       ; BL_COMP_OP_COLOR_BURN = 21,
+	linear-burn      ; BL_COMP_OP_LINEAR_BURN = 22,
+	linear-light     ; BL_COMP_OP_LINEAR_LIGHT = 23,
+	pin-light        ; BL_COMP_OP_PIN_LIGHT = 24,
+	hard-light       ; BL_COMP_OP_HARD_LIGHT = 25,
+	soft-light       ; BL_COMP_OP_SOFT_LIGHT = 26,
+	difference       ; BL_COMP_OP_DIFFERENCE = 27,
+	exclusion        ; BL_COMP_OP_EXCLUSION = 28,
 	;- line-cap:
 	miter
 	bevel

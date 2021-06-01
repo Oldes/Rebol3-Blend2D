@@ -45,6 +45,7 @@ enum b2d_cmd_words {W_B2D_CMD_0,
 	W_B2D_CMD_ROTATE,
 	W_B2D_CMD_SCALE,
 	W_B2D_CMD_TRANSLATE,
+	W_B2D_CMD_CLIP,
 	W_B2D_CMD_FONT,
 	W_B2D_CMD_FILL_PEN,
 };
@@ -75,6 +76,7 @@ enum b2d_arg_words {W_B2D_ARG_0,
 	W_B2D_ARG_CLEAR,
 	W_B2D_ARG_PLUS,
 	W_B2D_ARG_MINUS,
+	W_B2D_ARG_MODULATE,
 	W_B2D_ARG_MULTIPLY,
 	W_B2D_ARG_SCREEN,
 	W_B2D_ARG_OVERLAY,
@@ -105,4 +107,4 @@ const char *init_block =
 	"info: command [\"Prints info about Blend2D library\"]\n"
 	"fill-pen: command [\"Sets the area fill pen color\" pen [tuple! image! logic!] \"Set to OFF to disable fill pen\"]\n"
 	"box: command [\"Draws a rectangular box.\" origin [pair!] \"Corner of box\" end [pair!] \"End of box\" corner-radius [number!] \"Rounds corners\"]\n"
-	"init-words words: [line cubic quad polygon shape box circle ellipse arc image text fill-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord]\n";
+	"init-words words: [line cubic quad polygon shape box circle ellipse arc image text fill-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate clip font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus modulate multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord]\n";
