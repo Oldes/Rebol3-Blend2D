@@ -1,8 +1,8 @@
 Rebol [
 	title: "Basic Blend2D extension test"
 ]
-? system/options/script
-quiet?: system/options/quiet
+
+CI?: "true" = get-env "CI"
 
 ; extension handling is still under development!
 unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
@@ -27,7 +27,7 @@ img: draw 680x380 [
 	scale 0.8 rotate 10 image :plan 50x100
 ]
 save %test-result-01.png img
-unless quiet? [view img]
+unless CI? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -50,7 +50,7 @@ img: draw 480x480 [
 	box 240x40 200x400 45.5
 ]
 save %test-result-02.png img
-unless quiet? [view img]
+unless CI? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -96,7 +96,7 @@ img: draw 480x480 [
 	line 460x350 360x380 460x380
 ]
 save %test-result-03.png img
-unless quiet? [view img]
+unless CI? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -113,9 +113,9 @@ img: draw 480x480 [
 	;blend DIFFERENCE
 	box 195x195 270x270 25
 ]
-view img
+unless CI? [view img]
 save %test-result-04.png img
-unless quiet? [view img]
+unless CI? [view img]
 
-unless quiet? [ask "done"]
-wait 3
+unless CI? [ask "done"]
+unless CI? [wait 3]
