@@ -5,6 +5,8 @@ Rebol [
 CI?: "true" = get-env "CI" 
 
 unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
+
+;- assets start
 texture: load %assets/texture.jpeg
 plan:  premultiply load %assets/Plan31.png
 fish:  premultiply load %assets/fish.png
@@ -12,6 +14,7 @@ gnome: premultiply load %assets/gnome.png
 text: "The quick brown fox jumps over the lazy dog. 123456780"
 
 grid10x10: draw 20x20 [fill 215.215.215 box 0x0 10x10 box 10x10 20x20]
+;- assets end
 
 examples: [
 	
@@ -347,6 +350,19 @@ examples: [
 
 
 make-dir %assets/gen/
+page: make string! 20000
+
+;- using raw source to keep original formating of code examples
+raw-src: read/string %examples.r3
+
+parse raw-src [
+	thru {;- assets start} copy code to {;- assets end} (
+		append page rejoin [
+			"## Rebol/Blend2D `draw` dialect code examples"
+			"^/^/Using following assets:^/```rebol" code "^/```^/* * * *^/"
+		]
+	)
+]
 
 foreach [file code] examples [
 	out: rejoin [%assets/gen/ file %.png]
@@ -354,8 +370,27 @@ foreach [file code] examples [
 	try/except [
 		img: draw 480x480 code
 		save out img
+
+		if parse raw-src compose [
+			thru (join mold file " [") copy code to "^/^-]" to end
+		][
+			replace/all code "^-^-" "    "
+			name: uppercase/part copy file 1
+			replace/all name #"-" #" " 
+			append page rejoin [
+				{^/^/### } name
+				{^/```rebol^/draw 480x480 [} code {^/]^/```^/![](assets/gen/} file {.png)^/}
+			]
+		]
 	][ print system/state/last-error ]
 ]
 
-print "DONE"
-unless CI? [wait 1]
+append page {
+* * * *
+This file was generated using [examples.r3](examples.r3) script.
+}
+
+unless CI? [
+	write %README.md page
+	ask "DONE"
+]
