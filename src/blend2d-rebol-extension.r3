@@ -18,6 +18,7 @@ cmd-words: [
 	image
 	text
 	fill-all ; fills all context area
+	clear-all
 
 	pen
 	fill

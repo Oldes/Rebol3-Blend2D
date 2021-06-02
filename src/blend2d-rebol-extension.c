@@ -104,7 +104,7 @@ REBOOL fetch_mode(REBSER *cmds, REBCNT index, REBCNT *result, REBCNT start, REBC
 	REBCNT wrd = max;
 	REBCNT type = RL_GET_VALUE(cmds, index, &arg);
 
-	if (RXT_WORD == type) {
+	if (RXT_WORD == type || RXT_LIT_WORD == type) {
 		wrd = RL_FIND_WORD(b2d_arg_words, arg.int32a) - start;
 	} else if (RXT_INTEGER == type) wrd = arg.int64;
 	if (wrd >= 0 && wrd < max) {
@@ -734,6 +734,10 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_FILL_ALL:
 			blContextFillAll(&ctx);
+			break;
+
+		case W_B2D_CMD_CLEAR_ALL:
+			blContextClearAll(&ctx);
 			break;
 
 		case W_B2D_CMD_CLIP:
