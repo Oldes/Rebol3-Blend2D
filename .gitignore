@@ -1,8 +1,8 @@
 /*
 !/.gitignore
 !/.github
-!/assets
+!/.editorconfig
 !/rebol
 !/src
-!/test.r3
+!/test
 !/Rebol-Blend2D.nest

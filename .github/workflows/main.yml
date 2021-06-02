@@ -37,7 +37,7 @@ jobs:
         product: bulk
 
     - name: Test extension
-      run:  ./rebol3 test.r3
+      run:  ./rebol3 test/test.r3
 
     ###############################################################################
     # Collecting build artifacts...

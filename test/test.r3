@@ -2,10 +2,10 @@ Rebol [
 	title: "Basic Blend2D extension test"
 ]
 
-quiet?: system/options/quiet
+CI?: "true" = get-env "CI"
 
 ; extension handling is still under development!
-unless value? 'b2d [ b2d: import %blend2d-x64.rebx ]
+unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
 
 
 ;- internal built-in test                             
@@ -27,7 +27,7 @@ img: draw 680x380 [
 	scale 0.8 rotate 10 image :plan 50x100
 ]
 save %test-result-01.png img
-unless quiet? [view img]
+unless CI? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -50,7 +50,7 @@ img: draw 480x480 [
 	box 240x40 200x400 45.5
 ]
 save %test-result-02.png img
-unless quiet? [view img]
+unless CI? [view img]
 
 ;-----------------------------------------------------
 print [
@@ -96,6 +96,44 @@ img: draw 480x480 [
 	line 460x350 360x380 460x380
 ]
 save %test-result-03.png img
-unless quiet? [view img]
+unless CI? [view img]
 
-unless quiet? [ask "done"]
+;-----------------------------------------------------
+print [
+	as-red   "[Test 04]:"
+	as-green "line-width"
+]
+
+w: 0.1 i: 1 code: {pen 0.0.0 line-width 10}
+while[i < 480][
+	append code rejoin ["^/line-width " w " line 10x" i " 470x" i]
+	w: 1.1 * (w + 0.1)
+	i: i + 1 + (1.1 * w)
+]
+img: draw 480x480 load code
+
+save %test-result-04.png img
+unless CI? [view img]
+
+
+;-----------------------------------------------------
+print [
+	as-red   "[Test 05]:"
+	as-green "fill, cubic, blend and box"
+]
+
+texture: load  %assets/texture.jpeg
+
+img: draw 480x480 [
+	fill 255.0.0
+	circle 180x180 160
+	fill linear 255.255.255 0 95.175.223 0.5 47.95.223 1 0x480 0x0
+	;blend DIFFERENCE
+	box 195x195 270x270 25
+]
+
+save %test-result-05.png img
+unless CI? [view img]
+
+unless CI? [ask "done"]
+unless CI? [wait 3]
