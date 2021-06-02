@@ -1,6 +1,7 @@
 /*
 !/.gitignore
 !/.github
+!/.editorconfig
 !/rebol
 !/src
 !/test
