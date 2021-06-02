@@ -101,6 +101,24 @@ unless CI? [view img]
 ;-----------------------------------------------------
 print [
 	as-red   "[Test 04]:"
+	as-green "line-width"
+]
+
+w: 0.1 i: 1 code: {pen 0.0.0 line-width 10}
+while[i < 480][
+	append code rejoin ["^/line-width " w " line 10x" i " 470x" i]
+	w: 1.1 * (w + 0.1)
+	i: i + 1 + (1.1 * w)
+]
+img: draw 480x480 load code
+
+save %test-result-04.png img
+unless CI? [view img]
+
+
+;-----------------------------------------------------
+print [
+	as-red   "[Test 05]:"
 	as-green "fill, cubic, blend and box"
 ]
 
@@ -113,8 +131,8 @@ img: draw 480x480 [
 	;blend DIFFERENCE
 	box 195x195 270x270 25
 ]
-unless CI? [view img]
-save %test-result-04.png img
+
+save %test-result-05.png img
 unless CI? [view img]
 
 unless CI? [ask "done"]
