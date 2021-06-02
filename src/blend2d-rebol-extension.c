@@ -739,11 +739,20 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 		case W_B2D_CMD_CLEAR_ALL:
 			blContextClearAll(&ctx);
 			break;
+		
+		case W_B2D_CMD_CLEAR:
+			RESOLVE_PAIR_ARG(0, 0);
+			RESOLVE_PAIR_ARG(1, 2);
+			rect.x = doubles[0];
+			rect.y = doubles[1];
+			rect.w = doubles[2] - doubles[0];
+			rect.h = doubles[3] - doubles[1];
+			blContextClearRectD(&ctx, &rect);
+			break;
 
 		case W_B2D_CMD_CLIP:
 			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[0]);
 			if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) {
-				puts("clipoff");
 				blContextRestoreClipping(&ctx);
 			}
 			else {
