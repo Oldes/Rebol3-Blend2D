@@ -48,6 +48,6 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: Rebol-Blend2D-CI-${{github.run_id}}-test-results
-        path: ./test-result*
+        path: ./test/test-result*
 
  
