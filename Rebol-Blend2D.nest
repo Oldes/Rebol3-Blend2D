@@ -46,7 +46,15 @@ rebol3-x64: [
 
 r3-extension: [
 	source: %src/
-	files: only [ %blend2d-rebol-extension.c ]
+	files: only [
+		%blend2d-rebol-extension.c
+		%blend2d-command.c
+		%blend2d-command-draw.c
+		%blend2d-command-path.c
+		%blend2d-command-font.c
+		%blend2d-command-info.c
+		;%blend2d-command-draw-test.c
+	]
 	include: [
 		%src/
 		%rebol/src/include/

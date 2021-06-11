@@ -449,5 +449,19 @@ draw 480x480 [
 ```
 ![](assets/gen/cubic.png)
 
+
+### Shape 1
+```rebol
+draw 480x480 [
+    fill :grid10x10	fill-all
+    pen 200.60.60 line-width 10
+    shape [
+    	move 100x300 arc 380x300 100 150 0 close
+    	move 100x330 line 380x330
+    ]
+]
+```
+![](assets/gen/shape-1.png)
+
 * * * *
 This file was generated using [examples.r3](examples.r3) script.

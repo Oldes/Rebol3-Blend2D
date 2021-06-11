@@ -346,6 +346,15 @@ examples: [
 		cubic 470x10 10x100 470x380 10x470
 	]
 
+	%shape-1 [
+		fill :grid10x10	fill-all
+		pen 200.60.60 line-width 10
+		shape [
+			move 100x300 arc  380x300 100 150 0 close
+			move 100x330 line 380x330
+		]
+	]
+
 ] ;examples
 
 

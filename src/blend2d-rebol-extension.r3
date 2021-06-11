@@ -5,6 +5,7 @@ REBOL [
 
 cmd-words: [
 	;@@ order of these is important!
+	move
 	line
 	cubic
 	quad
@@ -34,6 +35,7 @@ cmd-words: [
 	rotate
 	scale
 	translate
+	close
 
 	clip
 
@@ -111,29 +113,30 @@ commands: [
 	init-words: [cmd-words [block!] arg-words [block!]]
 	;--------------------------
 
-	draw-test: [
-		{Draws test}
-		image [image! pair!]
-	]
+	;draw-test: [
+	;	{Draws test}
+	;	image [image! pair!]
+	;]
 	draw: [
 		{Draws scalable vector graphics to an image}
 		image [image! pair!]
 		commands [block!]
 	]
-	text: [str [string!]]
-	info: ["Prints info about Blend2D library"]
+	path: [
+		{Prepares path object}
+		commands [block!]
+	]
+	font: [
+		{Prepares font handle}
+		file [file! string!] {Font location or name}
+	]
+	info: [
+		{Returns info about Blend2D library}
+		/of handle [handle!] {Blend2D object}
+	]
 
 	;--------------------------
-	fill-pen: [
-		"Sets the area fill pen color"
-		pen [tuple! image! logic!] "Set to OFF to disable fill pen"
-	]
-	box: [
-		"Draws a rectangular box."
-		origin [pair!] "Corner of box"
-		end [pair!] "End of box"
-		corner-radius [number!] "Rounds corners"
-	]
+
 ]
 
 
@@ -183,29 +186,22 @@ print header
 out: make string! 2000
 append out {// auto-generated file, do not modify! //
 
-#include "reb-host.h"
-#include "host-lib.h"
-#include <blend2d.h>
-#include <math.h> // floor
-
-#ifndef BL_BUILD_STATIC
-#pragma comment(lib,"blend2d.lib")
-#endif
-
-RL_LIB *RL; // Link back to reb-lib from embedded extensions
+#include "blend2d.h"
+#include "blend2d-command.h"
 
 }
 append out join enum-commands "^/};^/"
 append out join enum-cmd-words "^/};^/"
 append out join enum-arg-words "^/};^/"
-append out {const char *init_block =}
+append out {^/#define B2D_EXT_INIT_CODE \}
 
 
 foreach line split header lf [
 	replace/all line #"^"" {\"}
-	append out ajoin [{^/^-"} line {\n"}] 
+	append out ajoin [{^/^-"} line {\n"\}] 
 ]
-append out ";"
+append out "^/"
+
 
 print out
 
