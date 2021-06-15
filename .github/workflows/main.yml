@@ -32,7 +32,7 @@ jobs:
       run:  COPY .\msvc\Release-x64\blend2d-x64.dll blend2d-x64.rebx
 
     - name: Install Rebol for extension test
-      uses: oldes/install-rebol@v3.5.3
+      uses: oldes/install-rebol@v3.5.4
       with:
         product: bulk
 
