@@ -456,12 +456,37 @@ draw 480x480 [
     fill :grid10x10	fill-all
     pen 200.60.60 line-width 10
     shape [
-    	move 100x300 arc 380x300 100 150 0 close
+    	move 100x300 arc  380x300 100 150 0 close
     	move 100x330 line 380x330
     ]
 ]
 ```
 ![](assets/gen/shape-1.png)
+
+
+### Shape 2
+```rebol
+    ; preprocessed shape path
+    my-shape: b2d/path [
+    	move 100x300 arc  380x300 100 150 0 close
+    	move 100x330 line 380x330
+    ]
+```
+```rebol
+== #[handle! BLPath]
+```
+
+```rebol
+draw 480x480 [
+    fill :grid10x10	fill-all
+    fill 10.10.10.100
+    pen 200.60.60 line-width 10
+    shape :my-shape
+    pen 60.60.200 line-width 5 translate 0x50
+    shape :my-shape
+]
+```
+![](assets/gen/shape-2.png)
 
 * * * *
 This file was generated using [examples.r3](examples.r3) script.

@@ -355,7 +355,27 @@ examples: [
 		]
 	]
 
+	%shape-2 [
+		fill :grid10x10	fill-all
+		fill 10.10.10.100
+		pen 200.60.60 line-width 10
+		shape :my-shape
+		pen 60.60.200 line-width 5 translate 0x50
+		shape :my-shape
+	]
+
 ] ;examples
+
+precode: [
+	%shape-2 [
+		; preprocessed shape path
+		my-shape: b2d/path [
+			move 100x300 arc  380x300 100 150 0 close
+			move 100x330 line 380x330
+		]
+	]
+]
+
 
 
 make-dir %assets/gen/
@@ -377,19 +397,33 @@ foreach [file code] examples [
 	out: rejoin [%assets/gen/ file %.png]
 	print [as-red "Drawing example:" as-green mold out]
 	try/except [
+		code-init: none
+		if parse raw-src compose/deep [
+			thru (join mold file " [") copy code-draw to "^/^-]"
+			thru "precode:"
+			opt [thru (join mold file " [") copy code-init to "^/^-]"]
+			to end
+		][
+			replace/all code-draw "^-^-" "    "
+			name: uppercase/part copy file 1
+			replace/all name #"-" #" "
+		]
+
+		append page rejoin [{^/^/### } name]
+		if code-init [
+			replace/all code-init "^-^-" "    "
+			append page rejoin [{^/```rebol} code-init {^/```^/}]
+			init-result: try [do code-init]
+			if not error? init-result [
+				append page rejoin [{```rebol^/== } mold init-result {^/```^/}]
+			]
+		]
+
 		img: draw 480x480 code
 		save out img
 
-		if parse raw-src compose [
-			thru (join mold file " [") copy code to "^/^-]" to end
-		][
-			replace/all code "^-^-" "    "
-			name: uppercase/part copy file 1
-			replace/all name #"-" #" " 
-			append page rejoin [
-				{^/^/### } name
-				{^/```rebol^/draw 480x480 [} code {^/]^/```^/![](assets/gen/} file {.png)^/}
-			]
+		append page rejoin [
+			{^/```rebol^/draw 480x480 [} code-draw {^/]^/```^/![](assets/gen/} file {.png)^/}
 		]
 	][ print system/state/last-error ]
 ]
