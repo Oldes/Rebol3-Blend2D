@@ -466,11 +466,11 @@ draw 480x480 [
 
 ### Shape 2
 ```rebol
-    ; preprocessed shape path
-    my-shape: b2d/path [
-    	move 100x300 arc  380x300 100 150 0 close
-    	move 100x330 line 380x330
-    ]
+; preprocessed shape path
+my-shape: b2d/path [
+	move 100x300 arc  380x300 100 150 0 close
+	move 100x330 line 380x330
+]
 ```
 ```rebol
 == #[handle! BLPath]
