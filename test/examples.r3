@@ -357,10 +357,14 @@ examples: [
 
 	%shape-2 [
 		fill :grid10x10	fill-all
+		; drawing shape with some semitransparent fill
 		fill 10.10.10.100
 		pen 200.60.60 line-width 10
 		shape :my-shape
-		pen 60.60.200 line-width 5 translate 0x50
+		; and again with different stroke color and width 
+		pen 60.60.200 line-width 5
+		; translated a little bit down
+		translate 0x50
 		shape :my-shape
 	]
 
