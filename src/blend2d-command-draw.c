@@ -608,7 +608,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_HANDLE) {
 				REBHOB* hob = arg[0].handle.ptr;
-				if (hob->sym != Handle_BLPath) {
+				if (hob->sym == Handle_BLPath) {
 					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, (BLPathCore*)hob->data);
 				}
 				else goto error;
@@ -618,7 +618,6 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path);
 				blPathReset(&path);
 			}
-		
 			break;
 
 		default:
