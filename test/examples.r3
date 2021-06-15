@@ -412,7 +412,7 @@ foreach [file code] examples [
 		append page rejoin [{^/^/### } name]
 		if code-init [
 			replace/all code-init "^/^-^-" "^/" ; unindented
-			append page rejoin [{^/```rebol} code-init {^/```^/}]
+			append page rejoin [{^/```rebol} detab code-init {^/```^/}]
 			init-result: try [do code-init]
 			if not error? init-result [
 				append page rejoin [{```rebol^/== } mold init-result {^/```^/}]
