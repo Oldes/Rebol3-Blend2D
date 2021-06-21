@@ -35,6 +35,7 @@ jobs:
       uses: oldes/install-rebol@v3.5.4
       with:
         product: bulk
+        version: 3.5.5
 
     - name: Test extension
       run:  ./rebol3 test/test.r3
