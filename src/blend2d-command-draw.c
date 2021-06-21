@@ -10,6 +10,7 @@ extern REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT in
 REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	BLResult r;
 	BLImageCore img_target, img_pattern, img;
+	BLImageCore* current_img;
 	BLPatternCore pattern;
 	BLGradientCore gradient;
 	BLPathCore path;
@@ -35,6 +36,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	blPathInit(&path);
 	blImageInit(&img_target);
 	blImageInit(&img_pattern);
+	blImageInit(&img);
 	blFontInit(&font);
 	blFontFaceInit(&font_face);
 	
@@ -81,16 +83,20 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			if (RXT_TUPLE == type) {
 				blContextSetFillStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_fill = TRUE;
-			} else if (type == RXT_LOGIC) {
-				if(!arg[0].int32a) has_fill = FALSE;
+			}
+			else if (type == RXT_LOGIC) {
+				if (!arg[0].int32a) has_fill = FALSE;
+			} else if (type == RXT_HANDLE) {
+				REBHOB* hob = arg[0].handle.ptr;
+				if (hob->sym != Handle_BLImage) goto error;
+				current_img = (BLImageCore*)hob->data;
+				goto pattern_mode;
 			} else if (type == RXT_IMAGE) {
-				blImageInit(&img_pattern);
+				blImageReset(&img_pattern);
 				r = blImageCreateFromData(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
-				if (r != BL_SUCCESS) {
-					trace("failed to init pattern image!");
-					goto error;
-				}
-
+				if (r != BL_SUCCESS) goto error;
+				current_img = &img_pattern;
+			pattern_mode:
 				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_COMPLEX_COUNT)) {
 					index++;
 				} else {
@@ -98,7 +104,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				}
 				BLMatrix2D m;
 				blMatrix2DSetIdentity(&m);
-				blPatternInitAs(&pattern, &img_pattern, NULL, mode , NULL);
+				blPatternInitAs(&pattern, current_img, NULL, mode , NULL);
 				blContextSetFillStyleObject(&ctx, &pattern);
 				has_fill = TRUE;
 				blPatternReset(&pattern);
@@ -388,58 +394,53 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 
 		case W_B2D_CMD_IMAGE:
-
-			blImageInit(&img);
-			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
-			if (type == RXT_IMAGE) {
-				r = blImageCreateFromData(&img, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
-				if (r != BL_SUCCESS) {
-					trace("failed to init image!");
-					goto error;
-				}
-			}
-			else if (type == RXT_FILE) {
-				BLArrayCore codecs;
-				blImageCodecArrayInitBuiltInCodecs(&codecs);
-				r = blImageReadFromFile(&img, ((REBSER*)arg[0].series)->data, &codecs);
-				if (r != BL_SUCCESS) {
-					trace("failed to load image!");
-					goto end_ctx; //error!
-				}
-			}
-			else goto error;
-
 			// image area (could be used for texture atlas)
 			rectI.x = 0;
 			rectI.y = 0;
-			rectI.w = arg[0].width;
-			rectI.h = arg[0].height;
-			
-			
+			BLImageData imgData;
+
+			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
+			if (type == RXT_HANDLE) {
+				REBHOB* hob = arg[0].handle.ptr;
+				if (hob->sym != Handle_BLImage) goto error;
+				current_img = (BLImageCore*)hob->data;
+			}
+			else {
+				blImageReset(&img);
+				r = b2d_init_image_from_arg(&img, arg[0], type);
+				if (r != BL_SUCCESS) goto end_ctx; //error!
+				current_img = &img;
+			}
+	
+			blImageGetData(current_img, &imgData);
+			rectI.w = imgData.size.w;
+			rectI.h = imgData.size.h;
+	
+
 			RESOLVE_PAIR_ARG(1, 0) // top-left
 			pt.x = doubles[0]; // x
 			pt.y = doubles[1]; // y
 
 			// bottom-right (optional):
-			REBOOL scaleImage = FALSE;
+			REBOOL scaledImage = FALSE;
 			
 			RESOLVE_PAIR_ARG_OPTIONAL(2, 0)
 			if (type == RXT_PAIR) {
-				scaleImage = TRUE;
+				scaledImage = TRUE;
 				rect.x = pt.x;
 				rect.y = pt.y;
 				rect.w = doubles[0];
 				rect.h = doubles[1];
 				index++;
 			}
-			//debug_print("blitImage size: %i %i at: %f %f\n",  rectI.w, rectI.h, pt.x, pt.y);
-			if (scaleImage) {
-				blContextBlitScaledImageD(&ctx, &rect, &img, &rectI);
+			debug_print("blitImage size: %i %i at: %f %f\n",  rectI.w, rectI.h, pt.x, pt.y);
+			if (scaledImage) {
+				blContextBlitScaledImageD(&ctx, &rect, current_img, &rectI);
 			}
 			else {
-				blContextBlitImageD(&ctx, &pt, &img, &rectI);
+				blContextBlitImageD(&ctx, &pt, current_img, &rectI);
 			}
-			blImageReset(&img);
+			debug_print("done");
 			break;
 
 		case W_B2D_CMD_FONT:

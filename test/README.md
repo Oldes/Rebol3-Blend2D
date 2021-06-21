@@ -2,7 +2,7 @@
 
 Using following assets:
 ```rebol
-texture: load %assets/texture.jpeg
+texture: b2d/image %assets/texture.jpeg
 plan:  premultiply load %assets/Plan31.png
 fish:  premultiply load %assets/fish.png
 gnome: premultiply load %assets/gnome.png
@@ -456,7 +456,7 @@ draw 480x480 [
     fill :grid10x10	fill-all
     pen 200.60.60 line-width 10
     shape [
-    	move 100x300 arc  380x300 100 150 0 close
+    	move 100x300 arc  380x300 100 150 0 sweep close
     	move 100x330 line 380x330
     ]
 ]
@@ -468,7 +468,7 @@ draw 480x480 [
 ```rebol
 ; preprocessed shape path
 my-shape: b2d/path [
-    move 100x300 arc  380x300 100 150 0 close
+    move 100x300 arc  380x300 100 150 0 sweep close
     move 100x330 line 380x330
 ]
 ```
@@ -491,6 +491,276 @@ draw 480x480 [
 ]
 ```
 ![](assets/gen/shape-2.png)
+
+
+### Shape arc
+```rebol
+draw 480x480 [
+    line-width 10
+    line-join  miter round
+    line-cap   2
+    pen orange shape [move 100x200 arc 380x200 220 100 0]
+    pen green  shape [move 100x200 arc 380x200 220 100 0 large]
+    pen blue   shape [move 100x200 arc 380x200 220  50 0 sweep]
+    pen red    shape [move 100x200 arc 380x200 220  50 0 sweep large]
+    ; complex shape:
+    pen black
+    shape [
+    	move 0x399
+    	line 42x357
+    	arc 84x315 25 20 -45 sweep
+    	line 126x273
+    	arc  168x231 25 40 -45 sweep
+    	line 210x189
+    	arc  252x147 25 60 -45 sweep
+    	line 294x105
+    	arc  336x63 25 80 -45 sweep
+    	line 399x0
+    	move 0x0
+    ]
+]
+```
+![](assets/gen/shape-arc.png)
+
+
+### Shape curve
+```rebol
+draw 480x480 [
+    ; A cubic Bézier curve is defined by a start point, an end point, and two control points.
+    line-width 2 pen black
+    shape [
+    	move 0x0   curve 0x480 480x480 480x0
+    	move 0x480 curve 0x0   480x0   480x480
+    ]
+    ; and a shape with multiple curves using just one keyword
+    
+    line-width 10
+    line-cap   2
+    line-join  miter round
+    pen red
+    shape [
+    	move  100x50
+    	curve 100x450 380x450 380x50  300x250 180x250 100x50
+    ]
+    ; Control points and lines for the red path:
+    pen 0.0.0.100
+    line-width 2
+    line 100x50 100x450
+    line 380x50 380x450
+    line 100x50 180x250
+    line 380x50 300x250
+    pen off fill 0.0.200.200
+    circle 100x50  8
+    circle 100x450 8
+    circle 380x450 8
+    circle 380x50  8
+    circle 300x250 8
+    circle 180x250 8
+]
+```
+![](assets/gen/shape-curve.png)
+
+
+### Shape curv
+```rebol
+draw 480x480 [
+    line-width 10
+    line-join  miter round
+    line-cap   2
+    pen red
+    shape [
+    	move 100x100
+    	vline 380
+    	curv 380x380 380x100
+    ]
+    ; Control points and lines for the curved path:
+    pen 0.0.0.100
+    line-width 2
+    line 100x380 380x380 380x100
+    pen off fill 0.0.200.200
+    circle 100x380 8
+    circle 380x380 8
+    circle 380x100 8
+]
+```
+![](assets/gen/shape-curv.png)
+
+
+### Shape qcurve
+```rebol
+draw 480x480 [
+    line-width 10
+    line-join  miter round
+    line-cap   2
+    pen red
+    shape [
+    	move 100x50	qcurve 240x430 380x50
+    ]
+    pen orange line-width 3
+    shape [
+    	move 0x240 line 240x240 qcurve 480x240 480x0
+    ]
+    ; Control points and lines for the red path:
+    pen 0.0.0.100
+    line-width 2
+    line 100x50 240x430 380x50
+    pen off fill 0.0.200.200
+    circle 100x50  8
+    circle 240x430 8
+    circle 380x50  8
+]
+```
+![](assets/gen/shape-qcurve.png)
+
+
+### Shape qcurv
+```rebol
+draw 480x480 [
+    line-width 10
+    line-join  miter round
+    line-cap   2
+    pen red
+    shape [
+    	move     0x240
+    	qcurve 120x450 240x240
+    	qcurv  480x240
+    ]
+    pen blue line-width 5
+    shape [
+    	move 0x240
+    	qcurve 60x-80 120x240
+    	qcurv 240x240 360x240 480x240 
+    ]
+    ; Control points:
+    pen off fill 0.0.200.200
+    circle   0x240 8
+    circle 240x240 8
+    circle 480x240 8
+]
+```
+![](assets/gen/shape-qcurv.png)
+
+
+### Shape hline vline
+```rebol
+draw 480x480 [
+    line-width 10
+    line-join  miter round
+    line-cap   2
+    pen red
+    shape [
+    	move 100x100 hline 380
+    	move 100x150 hline 280
+    	move 100x200 hline 180
+    ]
+    pen blue
+    shape [
+    	move 380x100 vline 380
+    	move 280x150 vline 280
+    	move 180x200 vline 180
+    ]
+]
+```
+![](assets/gen/shape-hline-vline.png)
+
+
+### Img pattern pad
+```rebol
+draw 480x480 [
+    scale 50%
+    fill :texture 'pad
+    fill-all
+]
+```
+![](assets/gen/img-pattern-pad.png)
+
+
+### Img pattern tile
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'tile
+    fill-all
+]
+```
+![](assets/gen/img-pattern-tile.png)
+
+
+### Img pattern flip
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'flip
+    fill-all
+]
+```
+![](assets/gen/img-pattern-flip.png)
+
+
+### Img pattern tile y
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'tile-y
+    fill-all
+]
+```
+![](assets/gen/img-pattern-tile-y.png)
+
+
+### Img pattern flip y
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'flip-y
+    fill-all
+]
+```
+![](assets/gen/img-pattern-flip-y.png)
+
+
+### Img pattern tile x
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'tile-x
+    fill-all
+]
+```
+![](assets/gen/img-pattern-tile-x.png)
+
+
+### Img pattern tile x flip y
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'tile-x-flip-y
+    fill-all
+]
+```
+![](assets/gen/img-pattern-tile-x-flip-y.png)
+
+
+### Img pattern flip x
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'flip-x
+    fill-all
+]
+```
+![](assets/gen/img-pattern-flip-x.png)
+
+
+### Img pattern flip x tile y
+```rebol
+draw 480x480 [
+    scale 31%
+    fill :texture 'flip-x-tile-y
+    fill-all
+]
+```
+![](assets/gen/img-pattern-flip-x-tile-y.png)
 
 * * * *
 This file was generated using [examples.r3](examples.r3) script.

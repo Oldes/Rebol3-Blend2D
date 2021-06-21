@@ -14,6 +14,7 @@ void* releasePath(void* path) {
 REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT index) {
 	REBCNT cmd, type, cap, mode, count, i;
 	REBCNT cmd_pos = 0;
+	BLPoint pos;
 
 	while (index < cmds->tail) {
 		if (!fetch_word(cmds, index++, b2d_cmd_words, &cmd)) {
@@ -44,9 +45,59 @@ REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT index) {
 			RESOLVE_NUMBER_ARG(3, 2); // rotation angle of the underlying ellipse in degrees
 
 			TO_RADIANS(doubles[2]);
+			REBOOL sweepFlag = FALSE;
+			REBOOL largeFlag = FALSE;
 
-			//blPathArcTo(path, doubles[0], doubles[1], doubles[2], doubles[3], doubles[4], 0, 0);
-			blPathEllipticArcTo(path, doubles[0], doubles[1], doubles[2], FALSE, TRUE, doubles[3], doubles[4]);
+			OPT_WORD_FLAG(sweepFlag, W_B2D_ARG_SWEEP);
+			OPT_WORD_FLAG(largeFlag, W_B2D_ARG_LARGE);
+
+			blPathEllipticArcTo(path, doubles[0], doubles[1], doubles[2], largeFlag, sweepFlag, doubles[3], doubles[4]);
+			break;
+		case W_B2D_CMD_CURVE:
+			// A cubic Bézier curve is defined by a start point, an end point, and two control points.
+			while (
+				RXT_PAIR == RL_GET_VALUE(cmds, index,     &arg[0]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index + 2, &arg[2])
+			) {
+				index += 3;
+				blPathCubicTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1), ARG_X(2), ARG_Y(2));
+			}
+			break;
+		case W_B2D_CMD_CURV:
+			while (
+				RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1])
+			) {
+				index += 2;
+				blPathSmoothCubicTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
+			}
+			break;
+		case W_B2D_CMD_QCURVE:
+			// A quadratic Bézier curve is defined by a start point, an end point, and one control point.
+			while (
+				RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1])
+			) {
+				index += 2;
+				blPathQuadTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
+			}
+			break;
+		case W_B2D_CMD_QCURV:
+			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0])) {
+				index += 1;
+				blPathSmoothQuadTo(path, ARG_X(0), ARG_Y(0));
+			}
+			break;
+		case W_B2D_CMD_HLINE:
+			RESOLVE_NUMBER_ARG(0, 0);
+			blPathGetLastVertex(path, &pos);
+			blPathLineTo(path, doubles[0], pos.y);
+			break;
+		case W_B2D_CMD_VLINE:
+			RESOLVE_NUMBER_ARG(0, 0);
+			blPathGetLastVertex(path, &pos);
+			blPathLineTo(path, pos.x, doubles[0]);
 			break;
 		case W_B2D_CMD_CLOSE:
 			blPathClose(path);
@@ -82,6 +133,7 @@ REBCNT b2d_path(RXIFRM* frm, void* reb_ctx) {
 
 	b2d_init_path_from_block(path, RXA_SERIES(frm, 1), RXA_INDEX(frm, 1));
 
+	hob->flags |= HANDLE_CONTEXT; //@@ temp fix!
 	RXA_HANDLE(frm, 1) = hob;
 	RXA_HANDLE_TYPE(frm, 1) = hob->sym;
 	RXA_HANDLE_FLAGS(frm, 1) = hob->flags;

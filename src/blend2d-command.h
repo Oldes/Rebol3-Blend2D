@@ -4,6 +4,7 @@
 // Use on your own risc!
 
 #include <stdlib.h>
+#include "blend2d.h"
 #include "reb-host.h"
 #include "host-lib.h"
 
@@ -24,10 +25,13 @@
 
 REBCNT b2d_draw( RXIFRM* frm, void* ctx );
 REBCNT b2d_path( RXIFRM* frm, void* ctx );
+REBCNT b2d_font( RXIFRM* frm, void* ctx);
+REBCNT b2d_image(RXIFRM* frm, void* ctx );
 void   b2d_info( RXIFRM* frm, void* ctx );
-REBCNT b2d_draw_test( RXIFRM *frm, void *ctx );
+//REBCNT b2d_draw_test( RXIFRM *frm, void *ctx );
 
-
+BLResult b2d_init_image_from_file(BLImageCore* image, REBSER* fileName);
+BLResult b2d_init_image_from_arg(BLImageCore* image, RXIARG arg, REBCNT type);
 
 REBOOL fetch_word(REBSER *cmds, REBCNT index, u32* words, REBCNT *cmd);
 REBOOL fetch_mode(REBSER *cmds, REBCNT index, REBCNT *result, REBCNT start, REBCNT max);
@@ -35,12 +39,14 @@ REBOOL fetch_color(REBSER *cmds, REBCNT index, REBCNT *cmd);
 
 void* releaseFontFace(void* font);
 void* releasePath(void* path);
+void* releaseImage(void* image);
 
 
 extern u32* b2d_cmd_words;
 extern u32* b2d_arg_words;
 extern REBCNT Handle_BLPath;
 extern REBCNT Handle_BLFontFace;
+extern REBCNT Handle_BLImage;
 
 extern REBDEC doubles[DOUBLE_BUFFER_SIZE];
 extern RXIARG arg[ARG_BUFFER_SIZE];
@@ -105,3 +111,8 @@ extern RXIARG arg[ARG_BUFFER_SIZE];
 #define DRAW_GEOMETRY(ctx, mode, path) \
 	if (has_fill  ) blContextFillGeometry  (&ctx, mode, path);\
 	if (has_stroke) blContextStrokeGeometry(&ctx, mode, path);
+
+#define ARG_X(n) (arg[n].pair.x)
+#define ARG_Y(n) (arg[n].pair.y)
+
+#define OPT_WORD_FLAG(flag, name) if (fetch_word(cmds, index, b2d_arg_words, &cmd) && cmd == name) { flag = TRUE; index++; }

@@ -7,8 +7,14 @@ cmd-words: [
 	;@@ order of these is important!
 	move
 	line
+	curve
+	curv
 	cubic
 	quad
+	hline
+	vline
+	qcurve
+	qcurv
 
 	polygon
 	shape
@@ -97,8 +103,9 @@ arg-words: [
 	pie
 	closed ; same as pie
 	chord
+	sweep
+	large
 	;------------------------------
-
 
 
 ;	stroke-alignment
@@ -129,6 +136,10 @@ commands: [
 	font: [
 		{Prepares font handle}
 		file [file! string!] {Font location or name}
+	]
+	image: [
+		{Prepares Blend2D's native image}
+		from [pair! image! file!]
 	]
 	info: [
 		{Returns info about Blend2D library}
@@ -186,7 +197,6 @@ print header
 out: make string! 2000
 append out {// auto-generated file, do not modify! //
 
-#include "blend2d.h"
 #include "blend2d-command.h"
 
 }

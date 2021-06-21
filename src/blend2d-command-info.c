@@ -56,6 +56,24 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 				blPathGetCapacity(path)
 			);
 		}
+		if (hob->sym == Handle_BLImage) {
+			BLImageData imgData;
+			blImageGetData((BLImageCore*)hob->data, &imgData);
+			tail = sprintf_s(
+				SERIES_DATA(str),
+				SERIES_REST(str),
+				"width:  %i\n"
+				"heigth: %i\n"
+				"stride: %" PRIu64 "\n"
+				"format: %u\n"
+				"flags:  %u\n",
+				imgData.size.w,
+				imgData.size.h,
+				imgData.stride,
+				imgData.format,
+				imgData.flags
+			);
+		}
 	}
 	else {
 		BLRuntimeBuildInfo buildInfo;

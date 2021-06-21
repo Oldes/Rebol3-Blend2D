@@ -1,6 +1,5 @@
 // auto-generated file, do not modify! //
 
-#include "blend2d.h"
 #include "blend2d-command.h"
 
 enum b2d_commands {
@@ -8,13 +7,20 @@ enum b2d_commands {
 	CMD_B2D_DRAW,
 	CMD_B2D_PATH,
 	CMD_B2D_FONT,
+	CMD_B2D_IMAGE,
 	CMD_B2D_INFO,
 };
 enum b2d_cmd_words {W_B2D_CMD_0,
 	W_B2D_CMD_MOVE,
 	W_B2D_CMD_LINE,
+	W_B2D_CMD_CURVE,
+	W_B2D_CMD_CURV,
 	W_B2D_CMD_CUBIC,
 	W_B2D_CMD_QUAD,
+	W_B2D_CMD_HLINE,
+	W_B2D_CMD_VLINE,
+	W_B2D_CMD_QCURVE,
+	W_B2D_CMD_QCURV,
 	W_B2D_CMD_POLYGON,
 	W_B2D_CMD_SHAPE,
 	W_B2D_CMD_BOX,
@@ -91,6 +97,8 @@ enum b2d_arg_words {W_B2D_ARG_0,
 	W_B2D_ARG_PIE,
 	W_B2D_ARG_CLOSED,
 	W_B2D_ARG_CHORD,
+	W_B2D_ARG_SWEEP,
+	W_B2D_ARG_LARGE,
 };
 
 #define B2D_EXT_INIT_CODE \
@@ -99,5 +107,6 @@ enum b2d_arg_words {W_B2D_ARG_0,
 	"draw: command [\"Draws scalable vector graphics to an image\" image [image! pair!] commands [block!]]\n"\
 	"path: command [\"Prepares path object\" commands [block!]]\n"\
 	"font: command [\"Prepares font handle\" file [file! string!] \"Font location or name\"]\n"\
+	"image: command [\"Prepares Blend2D's native image\" from [pair! image! file!]]\n"\
 	"info: command [\"Returns info about Blend2D library\" /of handle [handle!] \"Blend2D object\"]\n"\
-	"init-words words: [move line cubic quad polygon shape box circle ellipse arc image text fill-all clear clear-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate close clip font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus modulate multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord]\n"\
+	"init-words words: [move line curve curv cubic quad hline vline qcurve qcurv polygon shape box circle ellipse arc image text fill-all clear clear-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate close clip font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus modulate multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord sweep large]\n"\

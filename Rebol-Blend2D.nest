@@ -52,6 +52,7 @@ r3-extension: [
 		%blend2d-command-draw.c
 		%blend2d-command-path.c
 		%blend2d-command-font.c
+		%blend2d-command-image.c
 		%blend2d-command-info.c
 		;%blend2d-command-draw-test.c
 	]

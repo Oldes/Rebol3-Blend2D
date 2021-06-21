@@ -35,7 +35,7 @@ REBCNT b2d_font(RXIFRM* frm, void* reb_ctx) {
 		debug_print("Failed to load font: %s, reason: %i\n", SERIES_DATA(src), ret);
 		return ret;
 	}
-
+	hob->flags |= HANDLE_CONTEXT; //@@ temp fix!
 	RXA_HANDLE(frm, 1) = hob;
 	RXA_HANDLE_TYPE(frm, 1) = hob->sym;
 	RXA_HANDLE_FLAGS(frm, 1) = hob->flags;

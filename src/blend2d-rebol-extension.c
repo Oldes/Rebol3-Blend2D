@@ -23,6 +23,7 @@ u32*   b2d_cmd_words;
 u32*   b2d_arg_words;
 REBCNT Handle_BLPath;
 REBCNT Handle_BLFontFace;
+REBCNT Handle_BLImage;
 
 REBDEC doubles[DOUBLE_BUFFER_SIZE];
 RXIARG arg[ARG_BUFFER_SIZE];
@@ -47,8 +48,7 @@ RXIEXT const char *RX_Init(int opts, RL_LIB *lib) {
     }
 	Handle_BLPath     = RL_REGISTER_HANDLE("BLPath", sizeof(BLPathCore), releasePath);
 	Handle_BLFontFace = RL_REGISTER_HANDLE("BLFontFace", sizeof(BLFontFaceCore), releaseFontFace);
-	debug_print("BLPath id: %i\n", Handle_BLPath);
-	debug_print("BLFont id: %i\n", Handle_BLFontFace);
+	Handle_BLImage    = RL_REGISTER_HANDLE("BLImage", sizeof(BLImageCore), releaseImage);
     return init_block;
 }
 
@@ -70,6 +70,10 @@ RXIEXT int RX_Call(int cmd, RXIFRM *frm, void *ctx) {
 	case CMD_B2D_PATH:
 		b2d_path(frm, ctx);
 		return RXR_VALUE;
+
+	case CMD_B2D_IMAGE:
+		if (BL_SUCCESS == b2d_image(frm, ctx)) return RXR_VALUE;
+		return RXR_NONE;
 
 	case CMD_B2D_FONT:
 		if (BL_SUCCESS == b2d_font(frm, ctx)) return RXR_VALUE;
