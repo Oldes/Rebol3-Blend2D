@@ -329,6 +329,27 @@ examples: [
 		ellipse 200x10 80x460
 	]
 
+	%point [
+		line-width 4
+		pen  red
+		fill orange
+		point-size 30
+		point :center ; single point
+
+		line-width 0
+		fill blue
+		point-size 20
+		point :points ; multiple points from vector value
+
+		point-size 10
+		fill purple
+		point 240x350 ; 
+		
+		point-size 4
+		fill black
+		point 230x360 240x360 250x360 240x370 ; multiple points
+	]
+
 	%arc [
 		line-width 4
 		pen 200.60.60 
@@ -418,12 +439,7 @@ examples: [
 		line 100x50 180x250
 		line 380x50 300x250
 		pen off fill 0.0.200.200
-		circle 100x50  8
-		circle 100x450 8
-		circle 380x450 8
-		circle 380x50  8
-		circle 300x250 8
-		circle 180x250 8
+		point-size 16 point 100x50 100x450 380x450 380x50 300x250 180x250
 	]
 
 	%shape-curv [
@@ -441,9 +457,7 @@ examples: [
 		line-width 2
 		line 100x380 380x380 380x100
 		pen off fill 0.0.200.200
-		circle 100x380 8
-		circle 380x380 8
-		circle 380x100 8
+		point-size 16 point 100x380 380x380 380x100
 	]
 
 	%shape-qcurve [
@@ -463,9 +477,7 @@ examples: [
 		line-width 2
 		line 100x50 240x430 380x50
 		pen off fill 0.0.200.200
-		circle 100x50  8
-		circle 240x430 8
-		circle 380x50  8
+		point-size 16 point 100x50 240x430 380x50
 	]
 
 	%shape-qcurv [
@@ -486,9 +498,7 @@ examples: [
 		]
 		; Control points:
 		pen off fill 0.0.200.200
-		circle   0x240 8
-		circle 240x240 8
-		circle 480x240 8
+		point-size 16 point 0x240 240x240 480x240
 	]
 
 	%shape-hline-vline [
@@ -557,6 +567,10 @@ examples: [
 ] ;examples
 
 precode: [
+	%point [
+		center: 240x240
+		points: #[f64! [100 100  100 380  380 380  380 100]]
+	]
 	%shape-2 [
 		; preprocessed shape path
 		my-shape: b2d/path [

@@ -32,6 +32,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	BLRectI rectI;
 	BLPoint pt;
 	REBDEC font_size = 10.0;
+	REBDEC point[4] = { 0,0,1.0,1.0 }; // default size of the point is 2px
 
 	blPathInit(&path);
 	blImageInit(&img_target);
@@ -368,7 +369,41 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
 			break;
 
-		
+		case W_B2D_CMD_POINT:
+
+			type = RESOLVE_ARG(0, 0);   // center
+			if (type == RXT_PAIR) {
+				// it's allowed to have one or more pairs...
+				while (type == RXT_PAIR) {
+					point[0] = arg[0].pair.x;
+					point[1] = arg[0].pair.y;
+					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
+					type = RESOLVE_ARG(0, 0);
+				}
+				index--; // reset index back as the last resolved arg is not a pair anymore
+			}
+			else if (type == RXT_VECTOR) {
+				REBSER* vect = (REBSER*)arg[0].series;
+				REBCNT  i    = arg[0].index;
+				REBCNT  num  = (vect->tail - i) >> 1;
+				REBDEC* data = (REBDEC*)vect->data;
+				printf("points: %u index: %u\n", num, i);
+
+				while(num-- > 0) {
+					point[0] = data[0];
+					point[1] = data[1];
+					data += 2;
+					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
+				}
+			}
+			break;
+
+		case W_B2D_CMD_POINT_SIZE:
+			RESOLVE_NUMBER_ARG(1, 0); // radius
+			point[2] = doubles[0] * 0.5;
+			point[3] = doubles[0] * 0.5;
+			break;
+
 		case W_B2D_CMD_ARC:
 
 			RESOLVE_PAIR_ARG(0, 0)    // center

@@ -27,6 +27,8 @@ cmd-words: [
 	fill-all ; fills all context area
 	clear
 	clear-all
+	point
+	point-size
 
 	pen
 	fill

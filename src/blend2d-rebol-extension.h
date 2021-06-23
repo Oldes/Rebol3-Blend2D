@@ -32,6 +32,8 @@ enum b2d_cmd_words {W_B2D_CMD_0,
 	W_B2D_CMD_FILL_ALL,
 	W_B2D_CMD_CLEAR,
 	W_B2D_CMD_CLEAR_ALL,
+	W_B2D_CMD_POINT,
+	W_B2D_CMD_POINT_SIZE,
 	W_B2D_CMD_PEN,
 	W_B2D_CMD_FILL,
 	W_B2D_CMD_LINE_WIDTH,
@@ -109,4 +111,4 @@ enum b2d_arg_words {W_B2D_ARG_0,
 	"font: command [\"Prepares font handle\" file [file! string!] \"Font location or name\"]\n"\
 	"image: command [\"Prepares Blend2D's native image\" from [pair! image! file!]]\n"\
 	"info: command [\"Returns info about Blend2D library\" /of handle [handle!] \"Blend2D object\"]\n"\
-	"init-words words: [move line curve curv cubic quad hline vline qcurve qcurv polygon shape box circle ellipse arc image text fill-all clear clear-all pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate close clip font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus modulate multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord sweep large]\n"\
+	"init-words words: [move line curve curv cubic quad hline vline qcurve qcurv polygon shape box circle ellipse arc image text fill-all clear clear-all point point-size pen fill line-width line-cap line-join alpha blend composite reset-matrix rotate scale translate close clip font fill-pen] [pad tile flip tile-y flip-y tile-x tile-x-flip-y flip-x flip-x-tile-y linear radial conical source-over source-copy source-in source-out source-atop destination-over destination-copy destination-in destination-out destination-atop xor clear plus minus modulate multiply screen overlay darken lighten color-dodge color-burn linear-burn linear-light pin-light hard-light soft-light difference exclusion miter bevel round pie closed chord sweep large]\n"\
