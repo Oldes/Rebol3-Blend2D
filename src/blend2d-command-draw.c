@@ -384,10 +384,9 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			else if (type == RXT_VECTOR) {
 				REBSER* vect = (REBSER*)arg[0].series;
-				REBCNT  i    = arg[0].index;
-				REBCNT  num  = (vect->tail - i) >> 1;
-				REBDEC* data = (REBDEC*)vect->data;
-				printf("points: %u index: %u\n", num, i);
+				REBCNT  ind  = arg[0].index;
+				REBCNT  num  = (vect->tail - ind) >> 1; // 2 values per point
+				REBDEC* data = (REBDEC*)vect->data + ind; // the value may not be at head
 
 				while(num-- > 0) {
 					point[0] = data[0];
@@ -402,6 +401,35 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			RESOLVE_NUMBER_ARG(1, 0); // radius
 			point[2] = doubles[0] * 0.5;
 			point[3] = doubles[0] * 0.5;
+			break;
+
+		case W_B2D_CMD_TRIANGLE:
+			type = RESOLVE_ARG(0);
+			if (RXT_PAIR == type) {
+				index--;
+				while (FETCH_3_PAIRS(cmds, index, arg[0], arg[1], arg[2])) {
+					doubles[0] = arg[0].pair.x;
+					doubles[1] = arg[0].pair.y;
+					doubles[2] = arg[1].pair.x;
+					doubles[3] = arg[1].pair.y;
+					doubles[4] = arg[2].pair.x;
+					doubles[5] = arg[2].pair.y;
+					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_TRIANGLE, doubles);
+					index += 3;
+				}
+			}
+			else if (RXT_VECTOR == type) {
+				REBSER* vect = (REBSER*)arg[0].series;
+				REBCNT  ind = arg[0].index;
+				REBCNT  num = (REBCNT)floor((REBDEC)(vect->tail - ind) / 6); // 6 values per triangle (3 points)
+				REBDEC* data = (REBDEC*)vect->data + ind;
+
+				while (num-- > 0) {
+					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_TRIANGLE, data);
+					data += 6;
+				}
+			}
+			else goto error;
 			break;
 
 		case W_B2D_CMD_ARC:

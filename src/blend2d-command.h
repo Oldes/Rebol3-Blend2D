@@ -4,11 +4,12 @@
 // Use on your own risc!
 
 #include <stdlib.h>
+#include <math.h>
 #include "blend2d.h"
 #include "reb-host.h"
 #include "host-lib.h"
 
-#define USE_TRACES
+//#define USE_TRACES
 #ifdef  USE_TRACES
 #include <stdio.h>
 #define debug_print(fmt, ...) do { printf(fmt, __VA_ARGS__); } while (0)

@@ -14,6 +14,9 @@ gnome: premultiply load %assets/gnome.png
 text: "The quick brown fox jumps over the lazy dog. 123456780"
 
 grid10x10: draw 20x20 [fill 215.215.215 box 0x0 10x10 box 10x10 20x20]
+center:  240x240
+points:  #[f64! [100 100  100 380  380 380  380 100]]
+points2: skip points 2
 ;- assets end
 
 examples: [
@@ -350,6 +353,22 @@ examples: [
 		point 230x360 240x360 250x360 240x370 ; multiple points
 	]
 
+	%triangle [
+		line-width 4
+		; single triangle
+		pen  red
+		fill orange
+		triangle 100x100 100x380 380x380
+		; two triangles using raw pairs
+		pen  off
+		fill olive
+		triangle 370x100 110x100 240x230  380x110 380x370 250x240
+
+		; triangle from a vector value
+		fill 200.100.100.100
+		triangle :points2
+	]
+
 	%arc [
 		line-width 4
 		pen 200.60.60 
@@ -567,10 +586,6 @@ examples: [
 ] ;examples
 
 precode: [
-	%point [
-		center: 240x240
-		points: #[f64! [100 100  100 380  380 380  380 100]]
-	]
 	%shape-2 [
 		; preprocessed shape path
 		my-shape: b2d/path [

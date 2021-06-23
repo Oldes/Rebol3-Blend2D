@@ -9,6 +9,9 @@ gnome: premultiply load %assets/gnome.png
 text: "The quick brown fox jumps over the lazy dog. 123456780"
 
 grid10x10: draw 20x20 [fill 215.215.215 box 0x0 10x10 box 10x10 20x20]
+center:  240x240
+points:  #[f64! [100 100  100 380  380 380  380 100]]
+points2: skip points 2
 
 ```
 * * * *
@@ -425,14 +428,6 @@ draw 480x480 [
 
 ### Point
 ```rebol
-center: 240x240
-points: #[f64! [100 100  100 380  380 380  380 100]]
-```
-```rebol
-== make vector! [decimal! 64 8 [100.0 100.0 100.0 380.0 380.0 380.0 380.0 100.0]]
-```
-
-```rebol
 draw 480x480 [
     line-width 4
     pen  red
@@ -455,6 +450,27 @@ draw 480x480 [
 ]
 ```
 ![](assets/gen/point.png)
+
+
+### Triangle
+```rebol
+draw 480x480 [
+    line-width 4
+    ; single triangle
+    pen  red
+    fill orange
+    triangle 100x100 100x380 380x380
+    ; two triangles using raw pairs
+    pen  off
+    fill olive
+    triangle 370x100 110x100 240x230  380x110 380x370 250x240
+
+    ; triangle from a vector value
+    fill 200.100.100.100
+    triangle :points2
+]
+```
+![](assets/gen/triangle.png)
 
 
 ### Arc

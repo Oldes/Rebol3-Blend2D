@@ -29,6 +29,7 @@ cmd-words: [
 	clear-all
 	point
 	point-size
+	triangle
 
 	pen
 	fill

@@ -39,7 +39,7 @@ RXIEXT const char *RX_Init(int opts, RL_LIB *lib) {
 	debug_print("RXinit b2d; Rebol v%i.%i.%i\n", ver[1], ver[2], ver[3]);
 
 	if (MIN_REBOL_VERSION > VERSION(ver[1], ver[2], ver[3])) {
-		printf("Needs at least Rebol v%i.%i.%i!\n", MIN_REBOL_VER, MIN_REBOL_REV, MIN_REBOL_UPD);
+		debug_print("Needs at least Rebol v%i.%i.%i!\n", MIN_REBOL_VER, MIN_REBOL_REV, MIN_REBOL_UPD);
 		return 0;
 	}
     if (!CHECK_STRUCT_ALIGN) {
