@@ -20,7 +20,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Install Siskin Builder
-      uses: oldes/install-siskin@v0.5.0
+      uses: oldes/install-siskin@v0.6.0
 
     - name: Build 64bit static Blend2d library
       run: ./siskin Rebol-Blend2D.nest 1
