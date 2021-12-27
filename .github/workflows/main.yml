@@ -33,6 +33,8 @@ jobs:
 
     - name: Install Rebol for extension test
       uses: oldes/install-rebol@v3.7.2
+      with:
+        product: Bulk # premultiply is not part of Core in this version
 
     - name: Test extension
       run:  ./rebol3.exe test/test.r3
