@@ -1,6 +1,6 @@
 ;~ Siskin project nest file ~;
-github: asmjit/asmjit
-github: blend2d/blend2d
+github: @asmjit
+github: @blend2d
 ;github: blend2d/blend2d-samples
 
 compiler: gcc

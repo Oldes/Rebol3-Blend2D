@@ -20,7 +20,7 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Install Siskin Builder
-      uses: oldes/install-siskin@v0.3.5
+      uses: oldes/install-siskin@v0.5.0
 
     - name: Build 64bit static Blend2d library
       run: ./siskin Rebol-Blend2D.nest 1
@@ -32,10 +32,7 @@ jobs:
       run:  COPY .\msvc\Release-x64\blend2d-x64.dll blend2d-x64.rebx
 
     - name: Install Rebol for extension test
-      uses: oldes/install-rebol@v3.5.4
-      with:
-        product: bulk
-        version: 3.5.5
+      uses: oldes/install-rebol@v3.7.2
 
     - name: Test extension
       run:  ./rebol3 test/test.r3

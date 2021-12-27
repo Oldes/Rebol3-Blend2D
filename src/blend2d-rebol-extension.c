@@ -12,8 +12,8 @@
 RL_LIB *RL; // Link back to reb-lib from embedded extensions
 
 #define MIN_REBOL_VER 3
-#define MIN_REBOL_REV 5
-#define MIN_REBOL_UPD 4
+#define MIN_REBOL_REV 7
+#define MIN_REBOL_UPD 2
 #define VERSION(a, b, c) (a << 16) + (b << 8) + c
 #define MIN_REBOL_VERSION VERSION(MIN_REBOL_VER, MIN_REBOL_REV, MIN_REBOL_UPD)
 

@@ -4,6 +4,7 @@
 // Use on your own risc!
 
 #include "blend2d-rebol-extension.h"
+//#include "stdio.h"
 
 extern REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT index);
 
@@ -74,7 +75,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	process_cmd: // label is used from error loop which skip all args until it reaches valid command
 
 		cmd_pos = index; // this could be used to report error position
-		//debug_print("cmd index: %u\n", index);
+		//debug_print("cmd index: %u cmd: %u\n", index, cmd);
 		switch (cmd) {
 
 		case W_B2D_CMD_FILL	:
@@ -98,7 +99,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				if (r != BL_SUCCESS) goto error;
 				current_img = &img_pattern;
 			pattern_mode:
-				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_COMPLEX_COUNT)) {
+				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
 					index++;
 				} else {
 					mode = BL_EXTEND_MODE_REPEAT;
@@ -106,10 +107,10 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				BLMatrix2D m;
 				blMatrix2DSetIdentity(&m);
 				blPatternInitAs(&pattern, current_img, NULL, mode , NULL);
-				blContextSetFillStyleObject(&ctx, &pattern);
+				blContextSetFillStyle(&ctx, &pattern);
 				has_fill = TRUE;
 				blPatternReset(&pattern);
-			} else if (RXT_UNSET == type && fetch_mode(cmds, index-1, &mode, W_B2D_ARG_LINEAR, BL_GRADIENT_TYPE_COUNT)) {
+			} else if (RXT_UNSET == type && fetch_mode(cmds, index-1, &mode, W_B2D_ARG_LINEAR, BL_GRADIENT_TYPE_MAX_VALUE)) {
 				// gradient fill
 				blGradientInit(&gradient);
 				blGradientCreate(&gradient, mode, doubles, 0, NULL, 0, NULL);
@@ -133,7 +134,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				else {
 					blGradientSetValues(&gradient, 0, doubles, 4);
 				}
-				blContextSetFillStyleObject(&ctx, &gradient);
+				blContextSetFillStyle(&ctx, &gradient);
 				has_fill = TRUE;
 				blGradientReset(&gradient);
 
@@ -156,7 +157,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 					goto error;
 				}
 
-				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_COMPLEX_COUNT)) {
+				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
 					index++;
 				} else {
 					mode = BL_EXTEND_MODE_REPEAT;
@@ -164,7 +165,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				BLMatrix2D m;
 				blMatrix2DSetIdentity(&m);
 				blPatternInitAs(&pattern, &img_pattern, NULL, mode , NULL);
-				blContextSetFillStyleObject(&ctx, &pattern);
+				blContextSetFillStyle(&ctx, &pattern);
 				has_stroke = TRUE;
 				blPatternReset(&pattern);
 			} else goto error;
@@ -187,7 +188,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 					if (VTSF64 != VECT_TYPE(ser_points)) goto error;
 					REBCNT cnt_points = SERIES_LEN(ser_points)-1;
 					REBDEC *points = (REBDEC*)SERIES_DATA(ser_points);
-					type = RL_GET_VALUE(cmds, index++, &arg[0]);
+					RESOLVE_ARG(0);
 					if (RXT_VECTOR != type) goto error;
 					REBSER *ser_edges = arg[0].series;
 					if (VTSI32 != VECT_TYPE(ser_edges)) goto error;
@@ -212,7 +213,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 						}
 					}
 				} else goto error;
-				blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_PATH , &path);
+				blContextStrokePathD(&ctx, &path);
 				blPathReset(&path);
 			}
 			break;
@@ -258,13 +259,13 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			//TODO: use words instead of integers?
 			RESOLVE_INT_ARG(0);
 			cap = arg[0].int64;
-			if (cap >= BL_STROKE_CAP_COUNT) goto error; //invalid cap value
+			if (cap >= BL_STROKE_CAP_MAX_VALUE) goto error; //invalid cap value
 			
 			RESOLVE_INT_ARG_OPTIONAL(1); // end cap
 			if (RXT_INTEGER == type) {
 				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_START, cap);
 				cap = arg[1].int64;
-				if (cap >= BL_STROKE_CAP_COUNT) {
+				if (cap >= BL_STROKE_CAP_MAX_VALUE) {
 					//invalid cap value
 				}
 				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_END, cap);
@@ -288,8 +289,8 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				);
 				index += 3;
 			}
-			if (has_fill) blContextFillGeometry(&ctx, BL_GEOMETRY_TYPE_PATH , &path);
-			if (has_stroke) blContextStrokeGeometry(&ctx, BL_GEOMETRY_TYPE_PATH , &path);
+			if (has_fill) blContextFillPathD(&ctx, &path);
+			if (has_stroke) blContextStrokePathD(&ctx, &path);
 			
 			blPathReset(&path);
 			break;
@@ -371,14 +372,14 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_POINT:
 
-			type = RESOLVE_ARG(0, 0);   // center
+			type = RESOLVE_PAIR_ARG(0, 0);   // center
 			if (type == RXT_PAIR) {
 				// it's allowed to have one or more pairs...
 				while (type == RXT_PAIR) {
 					point[0] = arg[0].pair.x;
 					point[1] = arg[0].pair.y;
 					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
-					type = RESOLVE_ARG(0, 0);
+					type = RESOLVE_PAIR_ARG(0, 0);
 				}
 				index--; // reset index back as the last resolved arg is not a pair anymore
 			}
@@ -625,7 +626,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 		case W_B2D_CMD_BLEND:
 		case W_B2D_CMD_COMPOSITE:
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
-			if (fetch_mode(cmds, index - 1, &mode, W_B2D_ARG_SOURCE_OVER, BL_COMP_OP_COUNT)) {
+			if (fetch_mode(cmds, index - 1, &mode, W_B2D_ARG_SOURCE_OVER, BL_COMP_OP_MAX_VALUE)) {
 				debug_print("mode: %i\n", mode);
 				blContextSetCompOp(&ctx, mode);
 			} else if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) { // blend none or blend off
