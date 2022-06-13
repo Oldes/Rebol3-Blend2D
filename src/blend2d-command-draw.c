@@ -75,7 +75,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 	process_cmd: // label is used from error loop which skip all args until it reaches valid command
 
 		cmd_pos = index; // this could be used to report error position
-		//debug_print("cmd index: %u cmd: %u\n", index, cmd);
+		debug_print("cmd index: %u cmd: %u\n", index, cmd);
 		switch (cmd) {
 
 		case W_B2D_CMD_FILL	:
@@ -83,6 +83,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 			RESOLVE_ARG(0)
 			if (RXT_TUPLE == type) {
+				debug_print("Fill color: %u\n", TUPLE_TO_COLOR(arg[0]));
 				blContextSetFillStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_fill = TRUE;
 			}
@@ -340,7 +341,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			} else {
 				mode = BL_GEOMETRY_TYPE_RECTD;
 			}
-			//debug_print("box type: %u size: %f %f %f %f radius: %f %f\n", mode, doubles[0],doubles[1],doubles[2],doubles[3], doubles[4], doubles[5]);
+			debug_print("box type: %u size: %f %f %f %f radius: %f %f\n", mode, doubles[0],doubles[1],doubles[2],doubles[3], doubles[4], doubles[5]);
 			DRAW_GEOMETRY(ctx, mode, doubles);
 			break;
 
@@ -504,7 +505,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			else {
 				blContextBlitImageD(&ctx, &pt, current_img, &rectI);
 			}
-			debug_print("done");
+			trace("done");
 			break;
 
 		case W_B2D_CMD_FONT:
@@ -516,7 +517,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 				debug_print("Font handle: %p\n", font_face_ext);
 				if (hob->sym != Handle_BLFontFace) {
-					debug_print("Invalid font handle type!\n");
+					trace("Invalid font handle type!");
 					font_face_ext = NULL;
 					goto error;
 				}

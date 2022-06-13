@@ -26,7 +26,7 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 		if (hob->sym == Handle_BLFontFace) {
 			BLFontFaceInfo fontFaceInfo;
 			blFontFaceGetFaceInfo((BLFontFaceCore*)hob->data, &fontFaceInfo);
-			tail = sprintf_s(
+			tail = snprintf(
 				SERIES_DATA(str),
 				SERIES_REST(str),
 				"faceType:    %u\n"
@@ -47,7 +47,7 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 		}
 		else if (hob->sym == Handle_BLPath) {
 			BLPathCore* path = (BLPathCore*)hob->data;
-			tail = sprintf_s(
+			tail = snprintf(
 				SERIES_DATA(str),
 				SERIES_REST(str),
 				"size:     %" PRIu64 "\n"
@@ -59,7 +59,7 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 		if (hob->sym == Handle_BLImage) {
 			BLImageData imgData;
 			blImageGetData((BLImageCore*)hob->data, &imgData);
-			tail = sprintf_s(
+			tail = snprintf(
 				SERIES_DATA(str),
 				SERIES_REST(str),
 				"width:  %i\n"
@@ -84,7 +84,7 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 		blRuntimeQueryInfo(BL_RUNTIME_INFO_TYPE_SYSTEM, &systemInfo);
 		blRuntimeQueryInfo(BL_RUNTIME_INFO_TYPE_RESOURCE, &resourceInfo);
 
-		tail = sprintf_s(
+		tail = snprintf(
 			SERIES_DATA(str),
 			SERIES_REST(str),
 			"Version:     %u.%u.%u\n"

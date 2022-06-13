@@ -20,7 +20,7 @@ REBCNT b2d_font(RXIFRM* frm, void* reb_ctx) {
 	REBHOB* hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLFontFace);
 
 	if (hob == NULL) {
-		debug_print("Failed to make font handle!\n");
+		trace("Failed to make font handle!");
 		return 1;
 	}
 	

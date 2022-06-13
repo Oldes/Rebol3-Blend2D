@@ -5,7 +5,7 @@ Rebol [
 CI?: "true" = get-env "CI"
 
 ; extension handling is still under development!
-unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
+unless value? 'b2d [ b2d: import rejoin [%../blend2d- system/build/os #"-" system/build/arch %.rebx] ]
 
 
 ;- internal built-in test                             

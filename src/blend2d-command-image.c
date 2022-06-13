@@ -66,6 +66,6 @@ REBCNT b2d_image(RXIFRM* frm, void* reb_ctx) {
 	return 0;
 
 error:
-	debug_print("Failed to make image handle!\n");
+	trace("Failed to make image handle!");
 	return r;
 }

@@ -1,10 +1,10 @@
 Rebol [
 	title: "Basic Blend2D extension usage examples"
 ]
-about
+;about
 CI?: "true" = get-env "CI" 
 ;recycle/torture
-unless value? 'b2d [ b2d: import %../blend2d-x64.rebx ]
+unless value? 'b2d [ b2d: import rejoin [%../blend2d- system/build/os #"-" system/build/arch %.rebx] ]
 
 ;- assets start
 texture: b2d/image %assets/texture.jpeg

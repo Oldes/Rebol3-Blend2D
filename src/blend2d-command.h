@@ -8,10 +8,10 @@
 #include "blend2d.h"
 #include "reb-host.h"
 #include "host-lib.h"
+#include <stdio.h>
 
 //#define USE_TRACES
 #ifdef  USE_TRACES
-#include <stdio.h>
 #define debug_print(fmt, ...) do { printf(fmt, __VA_ARGS__); } while (0)
 #define trace(str) puts(str)
 #else

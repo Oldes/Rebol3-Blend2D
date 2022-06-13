@@ -124,7 +124,7 @@ REBCNT b2d_path(RXIFRM* frm, void* reb_ctx) {
 	debug_print("pathHandleId: %u\n", Handle_BLPath);
 	REBHOB* hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLPath);
 	if (hob == NULL) {
-		debug_print("Failed to make path handle!\n");
+		trace("Failed to make path handle!");
 		return 1;
 	}
 	BLPathCore* path = (BLPathCore*)hob->data;
