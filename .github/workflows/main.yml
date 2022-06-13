@@ -75,7 +75,7 @@ jobs:
         product: Bulk # premultiply is not part of Core in this version
 
     - name: Test extension
-      run:  ./rebol3.exe test/test.r3
+      run:  ./rebol3 test/test.r3
 
     - name: Compress 64bit Rebol Blend2d extension
       run:  gzip -9 ./blend2d-macos-x64.rebx

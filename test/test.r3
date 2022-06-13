@@ -135,5 +135,7 @@ img: draw 480x480 [
 save %test-result-05.png img
 unless CI? [view img]
 
+print b2d/info
+
 unless CI? [ask "done"]
 unless CI? [wait 3]
