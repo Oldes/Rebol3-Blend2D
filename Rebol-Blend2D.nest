@@ -379,7 +379,7 @@ eggs: only [
 			compiler: clang
 			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1 USE_TRACES]
 			name: %blend2d-linux-x64
-			libraries: [%build/ %blend2d]
+			libraries: [%c %m %stdc++ %_static_linux/ %blend2d]
 		]
 	]
 ]

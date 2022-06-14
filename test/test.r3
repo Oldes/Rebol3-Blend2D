@@ -5,7 +5,13 @@ Rebol [
 CI?: "true" = get-env "CI"
 
 ; extension handling is still under development!
-unless value? 'b2d [ b2d: import rejoin [%../blend2d- system/build/os #"-" system/build/arch %.rebx] ]
+unless find system/modules 'blend2d [
+	import rejoin [%../blend2d- system/build/os #"-" system/build/arch %.rebx]
+]
+
+unless function? :view [view: none] ;= for systems without view
+
+b2d: system/modules/blend2d
 
 
 ;- internal built-in test                             
