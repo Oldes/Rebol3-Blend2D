@@ -92,7 +92,7 @@ jobs:
         path: ./test/test-result*
 
   linux:
-    runs-on: linux-latest
+    runs-on: ubuntu-18.04
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
