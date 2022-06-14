@@ -377,7 +377,7 @@ eggs: only [
 			:r3-extension
 			:target-x64
 			compiler: clang
-			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1 USE_TRACES]
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
 			name: %blend2d-linux-x64
 			libraries: [%c %m %stdc++ %_static_linux/ %blend2d]
 		]
