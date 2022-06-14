@@ -56,23 +56,6 @@ b2d-lib: [
 	]
 ]
 
-#if Windows? [ define: _CRT_SECURE_NO_WARNINGS]
-
-rebol3-x86: [
-	arch: x86
-	#if Windows? [
-		defines: [ TO_WIN32 _WIN32 ]
-	]
-]
-rebol3-x64: [
-	arch: x64
-	defines: [
-		_FILE_OFFSET_BITS=64
-		__LP64__ ; has long (integer) 64 bits
-	]
-	#if Windows? [ defines: [ TO_WIN32_X64 _WIN32 ] ]
-	#if Linux?   [ defines: [ TO_LINUX_X64        ] ]
-]
 
 r3-extension: [
 	source: %src/
@@ -269,7 +252,7 @@ eggs: only [
 		]
 		"Rebol/Blend2D extension - x64" [
 			:r3-extension
-			:rebol3-x64
+			:target-x64
 			#if Windows? [upx: on]
 
 			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
@@ -277,6 +260,7 @@ eggs: only [
 			libraries: [%_static/Release/blend2d]
 		]
 	]
+
 	#if macOS? [
 		"Make Blend2D static library (cmake) - x64" [
 			arch: x64
@@ -381,6 +365,21 @@ eggs: only [
 			compiler: clang
 			:target-x64
 			libraries: [%blend2d]
+		]
+	]
+	#if Linux? [
+		"Make 64bit Blend2D static library" [
+			arch: x64
+			cmd %_static_linux/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=TRUE -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DASMJIT_DIR=../asmjit"
+			cmd %_static_linux/ {cmake --build .}
+		]
+		"Rebol extension" [
+			:r3-extension
+			:target-x64
+			compiler: clang
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1 USE_TRACES]
+			name: %blend2d-linux-x64
+			libraries: [%build/ %blend2d]
 		]
 	]
 ]

@@ -154,8 +154,16 @@ commands: [
 ]
 
 
-
-header: {REBOL [Title: {Blend2D} Type: module Exports: [draw]]}
+header: rejoin [
+	{REBOL [Title: "Rebol Blend2D Extension"}
+	{ Name: blend2d Type: module Exports: [draw]}
+	{ Version: 0.0.18.0}
+	{ Author: Oldes}
+	{ Date: } now
+	{ License: Apache-2.0}
+	{ Url: https://github.com/Siskin-framework/Rebol-Blend2D}
+	#"]"
+]
 enum-commands: {enum b2d_commands ^{}
 enum-cmd-words: {enum b2d_cmd_words ^{W_B2D_CMD_0,}
 enum-arg-words: {enum b2d_arg_words ^{W_B2D_ARG_0,}

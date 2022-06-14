@@ -90,4 +90,44 @@ jobs:
       with:
         name: Rebol-Blend2D-CI-${{github.run_id}}-test-results-macos-x64
         path: ./test/test-result*
+
+  linux:
+    runs-on: linux-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Siskin Builder
+      uses: oldes/install-siskin@v0.6.0
+
+    - name: Build 64bit static Blend2d library
+      run: ./siskin Rebol-Blend2D.nest 1
+
+    - name: Build 64bit Rebol Blend2d extension
+      run: ./siskin Rebol-Blend2D.nest blend2d-linux-x64
+
+    - name: Prepare 64bit Rebol Blend2d extension
+      run:  mv ./build/blend2d-linux-x64.so blend2d-linux-x64.rebx
+
+    - name: Install Rebol for extension test
+      uses: oldes/install-rebol@v3.8.0
+      with:
+        product: Bulk # premultiply is not part of Core in this version
+
+    - name: Test extension
+      run:  ./rebol3 test/test.r3
+
+    - name: Compress 64bit Rebol Blend2d extension
+      run:  gzip -9 ./blend2d-linux-x64.rebx
+
+    ###############################################################################
+    # Collecting build artifacts...
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Rebol-Blend2D-CI-${{github.run_id}}
+        path: ./blend2d-linux-x64.rebx.gz
+    - uses: actions/upload-artifact@v2
+      with:
+        name: Rebol-Blend2D-CI-${{github.run_id}}-test-results-linux-x64
+        path: ./test/test-result*
  
