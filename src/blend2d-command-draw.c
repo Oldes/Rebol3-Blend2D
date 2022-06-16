@@ -373,7 +373,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 
 		case W_B2D_CMD_POINT:
 
-			type = RESOLVE_PAIR_ARG(0, 0);   // center
+			type = RESOLVE_ARG(0); // center
 			if (type == RXT_PAIR) {
 				// it's allowed to have one or more pairs...
 				while (type == RXT_PAIR) {
