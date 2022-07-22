@@ -2,6 +2,7 @@
 **
 **  REBOL [R3] Language Interpreter and Run-time Environment
 **  Copyright 2012 REBOL Technologies
+**  Copyright 2012-2021 Rebol Open Source Contributors
 **  REBOL is a trademark of REBOL Technologies
 **  Licensed under the Apache License, Version 2.0
 **  This is a code-generated file.
@@ -9,8 +10,8 @@
 ************************************************************************
 **
 **  Title: REBOL Host and Extension API
-**  Build: A0
-**  Date:  25-Nov-2020
+**  Build: 3.5.3
+**  Date:  4-May-2021
 **  File:  reb-lib.reb
 **
 **  AUTO-GENERATED FILE - Do not modify. (From: make-reb-lib.reb)
@@ -21,8 +22,8 @@
 // These constants are created by the release system and can be used to check
 // for compatiblity with the reb-lib DLL (using RL_Version.)
 #define RL_VER 3
-#define RL_REV 3
-#define RL_UPD 0
+#define RL_REV 5
+#define RL_UPD 3
 
 // Compatiblity with the lib requires that structs are aligned using the same
 // method. This is concrete, not abstract. The macro below uses struct
@@ -75,6 +76,9 @@ typedef struct rebol_ext_api {
 	REBCNT (*encode_utf8)(REBYTE *dst, REBINT max, void *src, REBCNT *len, REBFLG uni, REBFLG opts);
 	REBSER* (*encode_utf8_string)(void *src, REBCNT len, REBFLG uni, REBFLG opts);
 	REBSER* (*decode_utf_string)(REBYTE *src, REBCNT len, REBINT utf, REBFLG ccr, REBFLG uni);
+	REBCNT (*register_handle)(REBYTE *name, REBCNT size, void* free_func);
+	REBHOB* (*make_handle_context)(REBCNT sym);
+	void (*free_handle_context)(REBHOB *hob);
 } RL_LIB;
 
 // Extension entry point functions:
@@ -800,6 +804,48 @@ extern RL_LIB *RL;  // is passed to the RX_Init() function
 **		uni  - keep uni version even for plain ascii
 */
 
+#define RL_REGISTER_HANDLE(a,b,c)   RL->register_handle(a,b,c)
+/*
+**	REBCNT RL_Register_Handle(REBYTE *name, REBCNT size, void* free_func)
+**
+**	Stores handle's specification (required data size and optional free callback.
+**
+**	Returns:
+**		table index for the word (whether found or new)
+**		or NOT_FOUND if handle with give ID is already registered.
+**	Arguments:
+**		name      - handle's name as a c-string (length is being detected)
+**		size      - size of needed memory to handle
+**		free_func - custom function to be called when handle is released
+**
+*/
+
+#define RL_MAKE_HANDLE_CONTEXT(a)   RL->make_handle_context(a)
+/*
+**	REBHOB* RL_Make_Handle_Context(REBCNT sym)
+**
+**	Allocates memory large enough to hold given handle's id
+**
+**	Returns:
+**		A pointer to a Rebol's handle value.
+**	Arguments:
+**		sym - handle's word id
+**
+*/
+
+#define RL_FREE_HANDLE_CONTEXT(a)   RL->free_handle_context(a)
+/*
+**	void RL_Free_Handle_Context(REBHOB *hob)
+**
+**	Frees memory of given handle's context
+**
+**	Returns:
+**		nothing
+**	Arguments:
+**		hob - handle's context
+**
+*/
+
 
 
 #define RL_MAKE_BINARY(s) RL_MAKE_STRING(s, FALSE)
@@ -846,5 +892,8 @@ RL_API int RL_Callback(RXICBI *cbi);
 RL_API REBCNT RL_Encode_UTF8(REBYTE *dst, REBINT max, void *src, REBCNT *len, REBFLG uni, REBFLG opts);
 RL_API REBSER* RL_Encode_UTF8_String(void *src, REBCNT len, REBFLG uni, REBFLG opts);
 RL_API REBSER* RL_Decode_UTF_String(REBYTE *src, REBCNT len, REBINT utf, REBFLG ccr, REBFLG uni);
+RL_API REBCNT RL_Register_Handle(REBYTE *name, REBCNT size, void* free_func);
+RL_API REBHOB* RL_Make_Handle_Context(REBCNT sym);
+RL_API void RL_Free_Handle_Context(REBHOB *hob);
 
 #endif

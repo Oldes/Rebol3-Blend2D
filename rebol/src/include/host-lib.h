@@ -2,6 +2,7 @@
 **
 **  REBOL [R3] Language Interpreter and Run-time Environment
 **  Copyright 2012 REBOL Technologies
+**  Copyright 2012-2021 Rebol Open Source Contributors
 **  REBOL is a trademark of REBOL Technologies
 **  Licensed under the Apache License, Version 2.0
 **  This is a code-generated file.
@@ -9,8 +10,8 @@
 ************************************************************************
 **
 **  Title: Host Access Library
-**  Build: A0
-**  Date:  25-Nov-2020
+**  Build: 3.5.3
+**  Date:  4-May-2021
 **  File:  host-lib.h
 **
 **  AUTO-GENERATED FILE - Do not modify. (From: make-os-ext.reb)
@@ -18,9 +19,9 @@
 ***********************************************************************/
 
 
-#define HOST_LIB_VER 0
-#define HOST_LIB_SUM 2853
-#define HOST_LIB_SIZE 75
+#define HOST_LIB_VER 3
+#define HOST_LIB_SUM 60464
+#define HOST_LIB_SIZE 76
 
 extern REBDEV *Devices[];
 
@@ -29,6 +30,13 @@ typedef struct REBOL_Host_Lib {
 	unsigned int ver_sum;
 	REBDEV **devices;
 	REBREQ *std_io;
+	int (*os_call_device)(REBINT device, REBCNT command);
+	int (*os_do_device)(REBREQ *req, REBCNT command);
+	REBREQ *(*os_make_devreq)(int device);
+	int (*os_abort_device)(REBREQ *req);
+	int (*os_poll_devices)(void);
+	int (*os_quit_devices)(int flags);
+	REBINT (*os_wait)(REBCNT millisec, REBCNT res);
 	REBINT (*os_get_pid)();
 	REBINT (*os_get_uid)();
 	REBINT (*os_set_uid)(REBINT uid);
@@ -54,7 +62,7 @@ typedef struct REBOL_Host_Lib {
 	void (*os_get_time)(REBOL_DAT *dat);
 	i64 (*os_delta_time)(i64 base, int flags);
 	int (*os_get_current_dir)(REBCHR **path);
-	REBOOL (*os_set_current_dir)(REBCHR *path);
+	int (*os_set_current_dir)(REBCHR *path);
 	void (*os_file_time)(REBREQ *file, REBOL_DAT *dat);
 	void *(*os_open_library)(REBCHR *path, REBCNT *error);
 	void (*os_close_library)(void *dll);
@@ -66,13 +74,10 @@ typedef struct REBOL_Host_Lib {
 	int (*os_reap_process)(int pid, int *status, int flags);
 	int (*os_browse)(REBCHR *url, int reserved);
 	REBOOL (*os_request_file)(REBRFR *fr);
-	int (*os_call_device)(REBINT device, REBCNT command);
-	int (*os_do_device)(REBREQ *req, REBCNT command);
-	REBREQ *(*os_make_devreq)(int device);
-	int (*os_abort_device)(REBREQ *req);
-	int (*os_poll_devices)(void);
-	int (*os_quit_devices)(int flags);
-	REBINT (*os_wait)(REBCNT millisec, REBCNT res);
+	REBOOL (*os_request_dir)(REBRFR *fr);
+	void (*os_load_image)(REBUNI *uri, REBCNT frame, REBCDI *codi);
+	void (*os_save_image)(REBUNI *uri, REBCDI *codi);
+	void (*os_release_codecs)();
 	void* (*os_find_window)(REBGOB *gob);
 	void* (*os_find_compositor)(REBGOB *gob);
 	REBGOB* (*os_get_gob_root)();
@@ -101,90 +106,88 @@ typedef struct REBOL_Host_Lib {
 	void (*os_blit_window)(REBCMP* ctx);
 	void (*os_blit_gob_color)(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBXYI clip_oft, REBXYI clip_siz);
 	void (*os_blit_gob_image)(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBINT top, REBINT left, REBINT bottom, REBINT right);
-	void (*os_load_image)(REBUNI *uri, REBCNT frame, REBCDI *codi);
-	void (*os_save_image)(REBUNI *uri, REBCDI *codi);
-	void (*os_release_codecs)();
 } REBOL_HOST_LIB;
 
 //** Included by HOST *********************************************
 
 #ifndef REB_DEF
 
-extern REBINT OS_Get_PID();    // host-lib.c
-extern REBINT OS_Get_UID();    // host-lib.c
-extern REBINT OS_Set_UID(REBINT uid);    // host-lib.c
-extern REBINT OS_Get_GID();    // host-lib.c
-extern REBINT OS_Set_GID(REBINT gid);    // host-lib.c
-extern REBINT OS_Get_EUID();    // host-lib.c
-extern REBINT OS_Set_EUID(REBINT uid);    // host-lib.c
-extern REBINT OS_Get_EGID();    // host-lib.c
-extern REBINT OS_Set_EGID(REBINT gid);    // host-lib.c
-extern REBINT OS_Send_Signal(REBINT pid, REBINT signal);    // host-lib.c
-extern REBINT OS_Kill(REBINT pid);    // host-lib.c
-extern REBINT OS_Config(int id, REBYTE *result);    // host-lib.c
-extern void *OS_Make(size_t size);    // host-lib.c
-extern void OS_Free(void *mem);    // host-lib.c
-extern void OS_Exit(int code);    // host-lib.c
-extern void OS_Crash(const REBYTE *title, const REBYTE *content);    // host-lib.c
-extern REBCHR *OS_Form_Error(int errnum, REBCHR *str, int len);    // host-lib.c
-extern REBOOL OS_Get_Boot_Path(REBCHR *name);    // host-lib.c
-extern REBCHR *OS_Get_Locale(int what);    // host-lib.c
-extern REBINT OS_Get_Env(REBCHR *envname, REBCHR* envval, REBINT valsize);    // host-lib.c
-extern REBOOL OS_Set_Env(REBCHR *envname, REBCHR *envval);    // host-lib.c
-extern REBCHR *OS_List_Env(void);    // host-lib.c
-extern void OS_Get_Time(REBOL_DAT *dat);    // host-lib.c
-extern i64 OS_Delta_Time(i64 base, int flags);    // host-lib.c
-extern int OS_Get_Current_Dir(REBCHR **path);    // host-lib.c
-extern REBOOL OS_Set_Current_Dir(REBCHR *path);    // host-lib.c
-extern void OS_File_Time(REBREQ *file, REBOL_DAT *dat);    // host-lib.c
-extern void *OS_Open_Library(REBCHR *path, REBCNT *error);    // host-lib.c
-extern void OS_Close_Library(void *dll);    // host-lib.c
-extern void *OS_Find_Function(void *dll, const char *funcname);    // host-lib.c
-extern REBINT OS_Create_Thread(CFUNC init, void *arg, REBCNT stack_size);    // host-lib.c
-extern void OS_Delete_Thread(void);    // host-lib.c
-extern void OS_Task_Ready(REBINT tid);    // host-lib.c
-extern int OS_Create_Process(REBCHR *call, int argc, REBCHR* argv[], u32 flags, u64 *pid, int *exit_code, u32 input_type, void *input, u32 input_len, u32 output_type, void **output, u32 *output_len, u32 err_type, void **err, u32 *err_len);    // host-lib.c
-extern int OS_Reap_Process(int pid, int *status, int flags);    // host-lib.c
-extern int OS_Browse(REBCHR *url, int reserved);    // host-lib.c
-extern REBOOL OS_Request_File(REBRFR *fr);    // host-lib.c
-extern int OS_Call_Device(REBINT device, REBCNT command);    // ../host-device.c
-extern int OS_Do_Device(REBREQ *req, REBCNT command);    // ../host-device.c
-extern REBREQ *OS_Make_Devreq(int device);    // ../host-device.c
-extern int OS_Abort_Device(REBREQ *req);    // ../host-device.c
-extern int OS_Poll_Devices(void);    // ../host-device.c
-extern int OS_Quit_Devices(int flags);    // ../host-device.c
-extern REBINT OS_Wait(REBCNT millisec, REBCNT res);    // ../host-device.c
-extern void* OS_Find_Window(REBGOB *gob);    // host-window.c
-extern void* OS_Find_Compositor(REBGOB *gob);    // host-window.c
-extern REBGOB* OS_Get_Gob_Root();    // host-window.c
-extern void OS_Free_Window(REBGOB *gob);    // host-window.c
-extern void* OS_Open_Window(REBGOB *gob);    // host-window.c
-extern void OS_Close_Window(REBGOB *gob);    // host-window.c
-extern REBOOL OS_Resize_Window(REBGOB *gob, REBOOL redraw);    // host-window.c
-extern void OS_Update_Window(REBGOB *gob);    // host-window.c
-extern void OS_Draw_Window(REBGOB *wingob, REBGOB *gob, REBOOL invalidate);    // host-window.c
-extern REBINT OS_Show_Gob(REBGOB *gob);    // host-window.c
-extern void* OS_Init_Gob_Widget(REBCMP *ctx, REBGOB *gob);    // host-window.c
-extern REBOOL OS_Get_Widget_Data(REBGOB *gob, REBVAL *ret);    // host-window.c
-extern REBOOL OS_Set_Widget_Data(REBGOB *gob, REBVAL *data);    // host-window.c
-extern REBD32 OS_Get_Metrics(METRIC_TYPE type, REBINT display);    // host-window.c
-extern void OS_Set_Cursor(void *cursor);    // host-window.c
-extern void* OS_Load_Cursor(void *cursor);    // host-window.c
-extern void OS_Destroy_Cursor(void *cursor);    // host-window.c
-extern void* OS_Image_To_Cursor(REBYTE* image, REBINT width, REBINT height);    // host-window.c
-extern void* OS_Create_Compositor(REBGOB* rootGob, REBGOB* gob);    // host-compositor.c
-extern void OS_Destroy_Compositor(REBCMP* ctx);    // host-compositor.c
-extern REBYTE* OS_Get_Window_Buffer(REBCMP* ctx);    // host-compositor.c
-extern void OS_Release_Window_Buffer(REBCMP* ctx);    // host-compositor.c
-extern REBOOL OS_Resize_Window_Buffer(REBCMP* ctx, REBGOB* winGob);    // host-compositor.c
-extern void OS_Compose_Gob(REBCMP* ctx, REBGOB* winGob, REBGOB* gob, REBOOL only);    // host-compositor.c
-extern REBSER* OS_Gob_To_Image(REBGOB *gob);    // host-compositor.c
-extern void OS_Blit_Window(REBCMP* ctx);    // host-compositor.c
-extern void OS_Blit_Gob_Color(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBXYI clip_oft, REBXYI clip_siz);    // host-compositor.c
-extern void OS_Blit_Gob_Image(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBINT top, REBINT left, REBINT bottom, REBINT right);    // host-compositor.c
-extern void OS_Load_Image(REBUNI *uri, REBCNT frame, REBCDI *codi);    // host-image.c
-extern void OS_Save_Image(REBUNI *uri, REBCDI *codi);    // host-image.c
-extern void OS_Release_Codecs();    // host-image.c
+extern int OS_Call_Device(REBINT device, REBCNT command);    // src/os/host-device.c
+extern int OS_Do_Device(REBREQ *req, REBCNT command);    // src/os/host-device.c
+extern REBREQ *OS_Make_Devreq(int device);    // src/os/host-device.c
+extern int OS_Abort_Device(REBREQ *req);    // src/os/host-device.c
+extern int OS_Poll_Devices(void);    // src/os/host-device.c
+extern int OS_Quit_Devices(int flags);    // src/os/host-device.c
+extern REBINT OS_Wait(REBCNT millisec, REBCNT res);    // src/os/host-device.c
+extern REBINT OS_Get_PID();    // src/os/win32/host-lib.c
+extern REBINT OS_Get_UID();    // src/os/win32/host-lib.c
+extern REBINT OS_Set_UID(REBINT uid);    // src/os/win32/host-lib.c
+extern REBINT OS_Get_GID();    // src/os/win32/host-lib.c
+extern REBINT OS_Set_GID(REBINT gid);    // src/os/win32/host-lib.c
+extern REBINT OS_Get_EUID();    // src/os/win32/host-lib.c
+extern REBINT OS_Set_EUID(REBINT uid);    // src/os/win32/host-lib.c
+extern REBINT OS_Get_EGID();    // src/os/win32/host-lib.c
+extern REBINT OS_Set_EGID(REBINT gid);    // src/os/win32/host-lib.c
+extern REBINT OS_Send_Signal(REBINT pid, REBINT signal);    // src/os/win32/host-lib.c
+extern REBINT OS_Kill(REBINT pid);    // src/os/win32/host-lib.c
+extern REBINT OS_Config(int id, REBYTE *result);    // src/os/win32/host-lib.c
+extern void *OS_Make(size_t size);    // src/os/win32/host-lib.c
+extern void OS_Free(void *mem);    // src/os/win32/host-lib.c
+extern void OS_Exit(int code);    // src/os/win32/host-lib.c
+extern void OS_Crash(const REBYTE *title, const REBYTE *content);    // src/os/win32/host-lib.c
+extern REBCHR *OS_Form_Error(int errnum, REBCHR *str, int len);    // src/os/win32/host-lib.c
+extern REBOOL OS_Get_Boot_Path(REBCHR *name);    // src/os/win32/host-lib.c
+extern REBCHR *OS_Get_Locale(int what);    // src/os/win32/host-lib.c
+extern REBINT OS_Get_Env(REBCHR *envname, REBCHR* envval, REBINT valsize);    // src/os/win32/host-lib.c
+extern REBOOL OS_Set_Env(REBCHR *envname, REBCHR *envval);    // src/os/win32/host-lib.c
+extern REBCHR *OS_List_Env(void);    // src/os/win32/host-lib.c
+extern void OS_Get_Time(REBOL_DAT *dat);    // src/os/win32/host-lib.c
+extern i64 OS_Delta_Time(i64 base, int flags);    // src/os/win32/host-lib.c
+extern int OS_Get_Current_Dir(REBCHR **path);    // src/os/win32/host-lib.c
+extern int OS_Set_Current_Dir(REBCHR *path);    // src/os/win32/host-lib.c
+extern void OS_File_Time(REBREQ *file, REBOL_DAT *dat);    // src/os/win32/host-lib.c
+extern void *OS_Open_Library(REBCHR *path, REBCNT *error);    // src/os/win32/host-lib.c
+extern void OS_Close_Library(void *dll);    // src/os/win32/host-lib.c
+extern void *OS_Find_Function(void *dll, const char *funcname);    // src/os/win32/host-lib.c
+extern REBINT OS_Create_Thread(CFUNC init, void *arg, REBCNT stack_size);    // src/os/win32/host-lib.c
+extern void OS_Delete_Thread(void);    // src/os/win32/host-lib.c
+extern void OS_Task_Ready(REBINT tid);    // src/os/win32/host-lib.c
+extern int OS_Create_Process(REBCHR *call, int argc, REBCHR* argv[], u32 flags, u64 *pid, int *exit_code, u32 input_type, void *input, u32 input_len, u32 output_type, void **output, u32 *output_len, u32 err_type, void **err, u32 *err_len);    // src/os/win32/host-lib.c
+extern int OS_Reap_Process(int pid, int *status, int flags);    // src/os/win32/host-lib.c
+extern int OS_Browse(REBCHR *url, int reserved);    // src/os/win32/host-lib.c
+extern REBOOL OS_Request_File(REBRFR *fr);    // src/os/win32/host-lib.c
+extern REBOOL OS_Request_Dir(REBRFR *fr);    // src/os/win32/host-lib.c
+extern void OS_Load_Image(REBUNI *uri, REBCNT frame, REBCDI *codi);    // src/os/win32/host-image.c
+extern void OS_Save_Image(REBUNI *uri, REBCDI *codi);    // src/os/win32/host-image.c
+extern void OS_Release_Codecs();    // src/os/win32/host-image.c
+extern void* OS_Find_Window(REBGOB *gob);    // src/os/win32/host-window.c
+extern void* OS_Find_Compositor(REBGOB *gob);    // src/os/win32/host-window.c
+extern REBGOB* OS_Get_Gob_Root();    // src/os/win32/host-window.c
+extern void OS_Free_Window(REBGOB *gob);    // src/os/win32/host-window.c
+extern void* OS_Open_Window(REBGOB *gob);    // src/os/win32/host-window.c
+extern void OS_Close_Window(REBGOB *gob);    // src/os/win32/host-window.c
+extern REBOOL OS_Resize_Window(REBGOB *gob, REBOOL redraw);    // src/os/win32/host-window.c
+extern void OS_Update_Window(REBGOB *gob);    // src/os/win32/host-window.c
+extern void OS_Draw_Window(REBGOB *wingob, REBGOB *gob, REBOOL invalidate);    // src/os/win32/host-window.c
+extern REBINT OS_Show_Gob(REBGOB *gob);    // src/os/win32/host-window.c
+extern void* OS_Init_Gob_Widget(REBCMP *ctx, REBGOB *gob);    // src/os/win32/host-window.c
+extern REBOOL OS_Get_Widget_Data(REBGOB *gob, REBVAL *ret);    // src/os/win32/host-window.c
+extern REBOOL OS_Set_Widget_Data(REBGOB *gob, REBVAL *data);    // src/os/win32/host-window.c
+extern REBD32 OS_Get_Metrics(METRIC_TYPE type, REBINT display);    // src/os/win32/host-window.c
+extern void OS_Set_Cursor(void *cursor);    // src/os/win32/host-window.c
+extern void* OS_Load_Cursor(void *cursor);    // src/os/win32/host-window.c
+extern void OS_Destroy_Cursor(void *cursor);    // src/os/win32/host-window.c
+extern void* OS_Image_To_Cursor(REBYTE* image, REBINT width, REBINT height);    // src/os/win32/host-window.c
+extern void* OS_Create_Compositor(REBGOB* rootGob, REBGOB* gob);    // src/os/win32/host-compositor.c
+extern void OS_Destroy_Compositor(REBCMP* ctx);    // src/os/win32/host-compositor.c
+extern REBYTE* OS_Get_Window_Buffer(REBCMP* ctx);    // src/os/win32/host-compositor.c
+extern void OS_Release_Window_Buffer(REBCMP* ctx);    // src/os/win32/host-compositor.c
+extern REBOOL OS_Resize_Window_Buffer(REBCMP* ctx, REBGOB* winGob);    // src/os/win32/host-compositor.c
+extern void OS_Compose_Gob(REBCMP* ctx, REBGOB* winGob, REBGOB* gob, REBOOL only);    // src/os/win32/host-compositor.c
+extern REBSER* OS_Gob_To_Image(REBGOB *gob);    // src/os/win32/host-compositor.c
+extern void OS_Blit_Window(REBCMP* ctx);    // src/os/win32/host-compositor.c
+extern void OS_Blit_Gob_Color(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBXYI clip_oft, REBXYI clip_siz);    // src/os/win32/host-compositor.c
+extern void OS_Blit_Gob_Image(REBGOB *gob, REBCMP* ctx, REBXYI abs_oft, REBINT top, REBINT left, REBINT bottom, REBINT right);    // src/os/win32/host-compositor.c
 
 #ifdef OS_LIB_TABLE
 
@@ -195,6 +198,13 @@ REBOL_HOST_LIB Host_Lib_Init = {  // Host library function vector table.
 	(HOST_LIB_VER << 16) + HOST_LIB_SUM,
 	(REBDEV**)&Devices,
 	NULL, // Std_IO_Req is set on start-up
+	OS_Call_Device,
+	OS_Do_Device,
+	OS_Make_Devreq,
+	OS_Abort_Device,
+	OS_Poll_Devices,
+	OS_Quit_Devices,
+	OS_Wait,
 	OS_Get_PID,
 	OS_Get_UID,
 	OS_Set_UID,
@@ -232,13 +242,10 @@ REBOL_HOST_LIB Host_Lib_Init = {  // Host library function vector table.
 	OS_Reap_Process,
 	OS_Browse,
 	OS_Request_File,
-	OS_Call_Device,
-	OS_Do_Device,
-	OS_Make_Devreq,
-	OS_Abort_Device,
-	OS_Poll_Devices,
-	OS_Quit_Devices,
-	OS_Wait,
+	OS_Request_Dir,
+	OS_Load_Image,
+	OS_Save_Image,
+	OS_Release_Codecs,
 	OS_Find_Window,
 	OS_Find_Compositor,
 	OS_Get_Gob_Root,
@@ -267,9 +274,6 @@ REBOL_HOST_LIB Host_Lib_Init = {  // Host library function vector table.
 	OS_Blit_Window,
 	OS_Blit_Gob_Color,
 	OS_Blit_Gob_Image,
-	OS_Load_Image,
-	OS_Save_Image,
-	OS_Release_Codecs,
 };
 
 #endif //OS_LIB_TABLE 
@@ -280,6 +284,13 @@ REBOL_HOST_LIB Host_Lib_Init = {  // Host library function vector table.
 
 extern	REBOL_HOST_LIB *Host_Lib;
 
+#define OS_CALL_DEVICE(a,b)         Host_Lib->os_call_device(a,b)
+#define OS_DO_DEVICE(a,b)           Host_Lib->os_do_device(a,b)
+#define OS_MAKE_DEVREQ(a)           Host_Lib->os_make_devreq(a)
+#define OS_ABORT_DEVICE(a)          Host_Lib->os_abort_device(a)
+#define OS_POLL_DEVICES(void)       Host_Lib->os_poll_devices(void)
+#define OS_QUIT_DEVICES(a)          Host_Lib->os_quit_devices(a)
+#define OS_WAIT(a,b)                Host_Lib->os_wait(a,b)
 #define OS_GET_PID(void)            Host_Lib->os_get_pid(void)
 #define OS_GET_UID(void)            Host_Lib->os_get_uid(void)
 #define OS_SET_UID(a)               Host_Lib->os_set_uid(a)
@@ -317,13 +328,10 @@ extern	REBOL_HOST_LIB *Host_Lib;
 #define OS_REAP_PROCESS(a,b,c)      Host_Lib->os_reap_process(a,b,c)
 #define OS_BROWSE(a,b)              Host_Lib->os_browse(a,b)
 #define OS_REQUEST_FILE(a)          Host_Lib->os_request_file(a)
-#define OS_CALL_DEVICE(a,b)         Host_Lib->os_call_device(a,b)
-#define OS_DO_DEVICE(a,b)           Host_Lib->os_do_device(a,b)
-#define OS_MAKE_DEVREQ(a)           Host_Lib->os_make_devreq(a)
-#define OS_ABORT_DEVICE(a)          Host_Lib->os_abort_device(a)
-#define OS_POLL_DEVICES(void)       Host_Lib->os_poll_devices(void)
-#define OS_QUIT_DEVICES(a)          Host_Lib->os_quit_devices(a)
-#define OS_WAIT(a,b)                Host_Lib->os_wait(a,b)
+#define OS_REQUEST_DIR(a)           Host_Lib->os_request_dir(a)
+#define OS_LOAD_IMAGE(a,b,c)        Host_Lib->os_load_image(a,b,c)
+#define OS_SAVE_IMAGE(a,b)          Host_Lib->os_save_image(a,b)
+#define OS_RELEASE_CODECS(void)     Host_Lib->os_release_codecs(void)
 #define OS_FIND_WINDOW(a)           Host_Lib->os_find_window(a)
 #define OS_FIND_COMPOSITOR(a)       Host_Lib->os_find_compositor(a)
 #define OS_GET_GOB_ROOT(void)       Host_Lib->os_get_gob_root(void)
@@ -352,8 +360,5 @@ extern	REBOL_HOST_LIB *Host_Lib;
 #define OS_BLIT_WINDOW(a)           Host_Lib->os_blit_window(a)
 #define OS_BLIT_GOB_COLOR(a,b,c,d,e) Host_Lib->os_blit_gob_color(a,b,c,d,e)
 #define OS_BLIT_GOB_IMAGE(a,b,c,d,e,f,g) Host_Lib->os_blit_gob_image(a,b,c,d,e,f,g)
-#define OS_LOAD_IMAGE(a,b,c)        Host_Lib->os_load_image(a,b,c)
-#define OS_SAVE_IMAGE(a,b)          Host_Lib->os_save_image(a,b)
-#define OS_RELEASE_CODECS(void)     Host_Lib->os_release_codecs(void)
 
 #endif //REB_DEF

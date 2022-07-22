@@ -1,0 +1,385 @@
+;~ Siskin project nest file ~;
+github: @asmjit
+github: @blend2d
+;github: blend2d/blend2d-samples
+
+compiler: gcc
+needs:    cmake
+
+#if Windows? [ define: _CRT_SECURE_NO_WARNINGS upx: on needs: msbuild]
+#if macOS?   [ define: TO_OSX     define: HAS_BOOL]
+#if Linux?   [ define: TO_LINUX ]
+
+target-x86: [
+	arch: x86
+	#if Windows? [ defines: [ TO_WIN32 _WIN32 ] ]
+	#if Linux?   [ defines: [ TO_LINUX_X86    ] ]
+]
+target-x64: [
+	arch: x64
+	defines: [
+		_FILE_OFFSET_BITS=64
+		__LP64__ ; has long (integer) 64 bits
+	]
+	#if Windows? [ defines: [ TO_WIN32_X64 _WIN32 ] ]
+	#if Linux?   [ defines: [ TO_LINUX_X64        ] ]
+	#if macOS?   [ defines: [ TO_OSX_X64          ] flags: ["-arch x86_64"] ]
+]
+
+target-arm64: [
+	arch: arm64
+	;flags: ["-arch arm64"]
+	flags: "-target arm64-apple-darwin"
+	define: _FILE_OFFSET_BITS=64
+	define: __LP64__ ; has long (integer) 64 bits
+	define: __arm64__
+	define: TO_OSX_X64
+]
+
+
+include: %blend2d/src/
+
+b2d-lib: [
+	defines: [
+		;BL_BUILD_STATIC
+		;BL_BUILD_OPT_SSE2
+		;BL_BUILD_OPT_SSE3
+		;BL_BUILD_OPT_SSSE3
+		;BL_BUILD_OPT_SSE4_1
+		;BL_BUILD_OPT_SSE4_2
+		;BL_BUILD_OPT_AVX
+		;BL_BUILD_OPT_AVX2
+		;_UNICODE
+		;ASMJIT_BUILD_EMBED
+		;ASMJIT_BUILD_STATIC
+		;BL_BUILD_TEST
+	]
+]
+
+
+r3-extension: [
+	source: %src/
+	files: only [
+		%blend2d-rebol-extension.c
+		%blend2d-command.c
+		%blend2d-command-draw.c
+		%blend2d-command-path.c
+		%blend2d-command-font.c
+		%blend2d-command-image.c
+		%blend2d-command-info.c
+		;%blend2d-command-draw-test.c
+	]
+	include: [
+		%src/
+		%rebol/src/include/
+	]
+	defines: [ENDIAN_LITTLE]
+	cflags:  [-fpermissive]
+	flags:   [-O2 shared]
+
+	#if Posix? [
+		cflags: [-fPIC -pthread ]
+		;libraries: [%pthread]
+	]
+	do %src/blend2d-rebol-extension.r3 
+]
+
+b2d-files: [
+    %blend2d/src/blend2d/api-globals.cpp
+    %blend2d/src/blend2d/api-nocxx.cpp
+    %blend2d/src/blend2d/array.cpp
+    %blend2d/src/blend2d/bitset.cpp
+    %blend2d/src/blend2d/compop.cpp
+    %blend2d/src/blend2d/context.cpp
+    %blend2d/src/blend2d/filesystem.cpp
+    %blend2d/src/blend2d/font.cpp
+    %blend2d/src/blend2d/fontmanager.cpp
+    %blend2d/src/blend2d/format.cpp
+    %blend2d/src/blend2d/geometry.cpp
+    %blend2d/src/blend2d/glyphbuffer.cpp
+    %blend2d/src/blend2d/gradient.cpp
+    %blend2d/src/blend2d/image.cpp
+    %blend2d/src/blend2d/imagecodec.cpp
+    %blend2d/src/blend2d/imagescale.cpp
+    %blend2d/src/blend2d/math.cpp
+    %blend2d/src/blend2d/matrix.cpp
+    %blend2d/src/blend2d/matrix_avx.cpp
+    %blend2d/src/blend2d/matrix_sse2.cpp
+    %blend2d/src/blend2d/object.cpp
+    %blend2d/src/blend2d/path.cpp
+    %blend2d/src/blend2d/pathstroke.cpp
+    %blend2d/src/blend2d/pattern.cpp
+    %blend2d/src/blend2d/pixelconverter.cpp
+    %blend2d/src/blend2d/pixelconverter_avx2.cpp
+    %blend2d/src/blend2d/pixelconverter_sse2.cpp
+    %blend2d/src/blend2d/pixelconverter_ssse3.cpp
+    %blend2d/src/blend2d/random.cpp
+    %blend2d/src/blend2d/rgba.cpp
+    %blend2d/src/blend2d/runtime.cpp
+    %blend2d/src/blend2d/string.cpp
+    %blend2d/src/blend2d/tables.cpp
+    %blend2d/src/blend2d/trace.cpp
+    %blend2d/src/blend2d/unicode.cpp
+    %blend2d/src/blend2d/var.cpp
+    %blend2d/src/blend2d/zeroallocator.cpp
+    %blend2d/src/blend2d/codec/bmpcodec.cpp
+    %blend2d/src/blend2d/codec/jpegcodec.cpp
+    %blend2d/src/blend2d/codec/jpeghuffman.cpp
+    %blend2d/src/blend2d/codec/jpegops.cpp
+    %blend2d/src/blend2d/codec/jpegops_sse2.cpp
+    %blend2d/src/blend2d/codec/pngcodec.cpp
+    %blend2d/src/blend2d/codec/pngops.cpp
+    %blend2d/src/blend2d/codec/pngops_sse2.cpp
+    %blend2d/src/blend2d/compression/checksum.cpp
+    %blend2d/src/blend2d/compression/deflatedecoder.cpp
+    %blend2d/src/blend2d/compression/deflateencoder.cpp
+    %blend2d/src/blend2d/opentype/otcff.cpp
+    %blend2d/src/blend2d/opentype/otcmap.cpp
+    %blend2d/src/blend2d/opentype/otcore.cpp
+    %blend2d/src/blend2d/opentype/otface.cpp
+    %blend2d/src/blend2d/opentype/otglyf.cpp
+    %blend2d/src/blend2d/opentype/otkern.cpp
+    %blend2d/src/blend2d/opentype/otlayout.cpp
+    %blend2d/src/blend2d/opentype/otmetrics.cpp
+    %blend2d/src/blend2d/opentype/otname.cpp
+    %blend2d/src/blend2d/pipeline/pipedefs.cpp
+    %blend2d/src/blend2d/pipeline/piperuntime.cpp
+    %blend2d/src/blend2d/pipeline/jit/compoppart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchgradientpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchpatternpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchpixelptrpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchsolidpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/fetchutils.cpp
+    %blend2d/src/blend2d/pipeline/jit/fillpart.cpp
+    %blend2d/src/blend2d/pipeline/jit/pipecompiler.cpp
+    %blend2d/src/blend2d/pipeline/jit/pipegencore.cpp
+    %blend2d/src/blend2d/pipeline/jit/pipegenruntime.cpp
+    %blend2d/src/blend2d/pipeline/jit/pipepart.cpp
+    %blend2d/src/blend2d/pipeline/reference/fixedpiperuntime.cpp
+    %blend2d/src/blend2d/pixelops/interpolation.cpp
+    %blend2d/src/blend2d/pixelops/interpolation_avx2.cpp
+    %blend2d/src/blend2d/pixelops/interpolation_sse2.cpp
+    %blend2d/src/blend2d/pixelops/funcs.cpp
+    %blend2d/src/blend2d/pixelops/scalar.cpp
+    %blend2d/src/blend2d/raster/analyticrasterizer.cpp
+    %blend2d/src/blend2d/raster/rastercontext.cpp
+    %blend2d/src/blend2d/raster/rastercontextops.cpp
+    %blend2d/src/blend2d/raster/renderfetchdata.cpp
+    %blend2d/src/blend2d/raster/rendertargetinfo.cpp
+    %blend2d/src/blend2d/raster/workdata.cpp
+    %blend2d/src/blend2d/raster/workermanager.cpp
+    %blend2d/src/blend2d/raster/workerproc.cpp
+    %blend2d/src/blend2d/raster/workersynchronization.cpp
+    %blend2d/src/blend2d/support/algorithm.cpp
+    %blend2d/src/blend2d/support/arenaallocator.cpp
+    %blend2d/src/blend2d/support/arenahashmap.cpp
+    %blend2d/src/blend2d/support/arenalist.cpp
+    %blend2d/src/blend2d/support/arenatree.cpp
+    %blend2d/src/blend2d/support/bitops.cpp
+    %blend2d/src/blend2d/support/intops.cpp
+    %blend2d/src/blend2d/support/memops.cpp
+    %blend2d/src/blend2d/support/scopedallocator.cpp
+    %blend2d/src/blend2d/threading/futex.cpp
+    %blend2d/src/blend2d/threading/thread.cpp
+    %blend2d/src/blend2d/threading/threadpool.cpp
+    %blend2d/src/blend2d/threading/uniqueidgenerator.cpp
+    %asmjit/src/asmjit/core/archtraits.cpp
+    %asmjit/src/asmjit/core/assembler.cpp
+    %asmjit/src/asmjit/core/builder.cpp
+    %asmjit/src/asmjit/core/codeholder.cpp
+    %asmjit/src/asmjit/core/codewriter.cpp
+    %asmjit/src/asmjit/core/compiler.cpp
+    %asmjit/src/asmjit/core/constpool.cpp
+    %asmjit/src/asmjit/core/cpuinfo.cpp
+    %asmjit/src/asmjit/core/emithelper.cpp
+    %asmjit/src/asmjit/core/emitter.cpp
+    %asmjit/src/asmjit/core/emitterutils.cpp
+    %asmjit/src/asmjit/core/environment.cpp
+    %asmjit/src/asmjit/core/errorhandler.cpp
+    %asmjit/src/asmjit/core/formatter.cpp
+    %asmjit/src/asmjit/core/func.cpp
+    %asmjit/src/asmjit/core/funcargscontext.cpp
+    %asmjit/src/asmjit/core/globals.cpp
+    %asmjit/src/asmjit/core/inst.cpp
+    %asmjit/src/asmjit/core/jitallocator.cpp
+    %asmjit/src/asmjit/core/jitruntime.cpp
+    %asmjit/src/asmjit/core/logger.cpp
+    %asmjit/src/asmjit/core/operand.cpp
+    %asmjit/src/asmjit/core/osutils.cpp
+    %asmjit/src/asmjit/core/ralocal.cpp
+    %asmjit/src/asmjit/core/rapass.cpp
+    %asmjit/src/asmjit/core/rastack.cpp
+    %asmjit/src/asmjit/core/string.cpp
+    %asmjit/src/asmjit/core/support.cpp
+    %asmjit/src/asmjit/core/target.cpp
+    %asmjit/src/asmjit/core/type.cpp
+    %asmjit/src/asmjit/core/virtmem.cpp
+    %asmjit/src/asmjit/core/zone.cpp
+    %asmjit/src/asmjit/core/zonehash.cpp
+    %asmjit/src/asmjit/core/zonelist.cpp
+    %asmjit/src/asmjit/core/zonestack.cpp
+    %asmjit/src/asmjit/core/zonetree.cpp
+    %asmjit/src/asmjit/core/zonevector.cpp
+    %asmjit/src/asmjit/x86/x86assembler.cpp
+    %asmjit/src/asmjit/x86/x86builder.cpp
+    %asmjit/src/asmjit/x86/x86compiler.cpp
+    %asmjit/src/asmjit/x86/x86emithelper.cpp
+    %asmjit/src/asmjit/x86/x86formatter.cpp
+    %asmjit/src/asmjit/x86/x86func.cpp
+    %asmjit/src/asmjit/x86/x86instdb.cpp
+    %asmjit/src/asmjit/x86/x86instapi.cpp
+    %asmjit/src/asmjit/x86/x86operand.cpp
+    %asmjit/src/asmjit/x86/x86rapass.cpp
+]
+
+eggs: only [
+	#if Windows? [
+		"Make Blend2D static library (cmake) - x64" [
+			arch: x64
+			cmd %_static/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=TRUE -DASMJIT_DIR=../asmjit/"
+			cmd %_static/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Make Blend2D dynamic library (cmake) - x64" [
+			arch: x64
+			cmd %_dynamic/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=FALSE -DASMJIT_DIR=../asmjit/"
+			cmd %_dynamic/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Make Blend2D test" [
+			arch: x64
+			cmd %_test/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_TEST=1"
+			cmd %_test/ {msbuild blend2d.sln /p:Configuration=Release /p:Platform=x64}
+		]
+		"Rebol/Blend2D extension - x64" [
+			:r3-extension
+			:target-x64
+			#if Windows? [upx: on]
+
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
+			name: %blend2d-windows-x64
+			libraries: [%_static/Release/blend2d]
+		]
+	]
+
+	#if macOS? [
+		"Make Blend2D static library (cmake) - x64" [
+			arch: x64
+			cmd %_static_x64/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBLEND2D_STATIC=TRUE -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_OSX_SYSROOT=macosx -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9"
+			cmd %_static_x64/ {cmake --build .}
+		]
+		"Make Blend2D static library (cmake) - arm64" [
+			arch: arm64
+			cmd %_static_arm64/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBLEND2D_STATIC=TRUE -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_OSX_SYSROOT=macosx -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9"
+			cmd %_static_arm64/ {cmake --build .}
+		]
+;		"Make Blend2D dynamic library (cmake) - x64" [
+;			arch: x64
+;			cmd %_dynamic_x64/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF -DBLEND2D_STATIC=FALSE -DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_OSX_SYSROOT=macosx -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9"
+;			cmd %_dynamic_x64/ {cmake --build .}
+;		]
+;		"Make 64bit Blend2D static library (experiment without cmake)" [
+;			name: %libblend2d
+;			:target-x64
+;			compiler: clang
+;			files: :b2d-files
+;			;file: %blend2d/src/blend2d/compression/deflateencoder.cpp
+;			;file: %blend2d/src/blend2d/pixelconverter_avx2.cpp
+;			;file: %blend2d/src/blend2d/api-globals.cpp
+;			includes: [
+;				%asmjit/src/
+;			]
+;			defines: [
+;				BL_STATIC
+;				BL_BUILD_OPT_AVX2
+;				BL_BUILD_NO_STDCXX
+;				ASMJIT_STATIC
+;				ASMJIT_NO_STDCXX
+;				NDEBUG
+;			]
+;			cflags: [
+;				-std=c++11
+;				-O2
+;				-Wall
+;				-Wextra
+;				; -Wconversion
+;				-fno-math-errno
+;				-fno-threadsafe-statics
+;				-fmerge-all-constants
+;
+;				-fno-exceptions
+;				-fno-rtti
+;				-fno-finite-math-only
+;				;-msse2
+;				-mavx2
+;				-ftree-vectorize;
+;
+;				; -fno-semantic-interposition ; Do not allow semantic interposition (Clang uses this by default).
+;				"-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.1.sdk"
+;			]
+;			flag: -mmacosx-version-min=10.9 
+;			;flag: static
+;			;flag: "-arch x86_64"
+;			cflags: [-fPIC -pthread ]
+;			;lflags: [-static-libstdc++]
+;			libraries: [%pthread %c %m]
+;
+;			;files:  [
+;			;	%src/blend2d-rebol-extension.c
+;			;	%src/blend2d-command.c
+;			;	%src/blend2d-command-draw.c
+;			;	%src/blend2d-command-path.c
+;			;	%src/blend2d-command-font.c
+;			;	%src/blend2d-command-image.c
+;			;	%src/blend2d-command-info.c
+;			;	;%blend2d-command-draw-test.c
+;			;]
+;			;include: [
+;			;	%src/
+;			;	%rebol/src/include/
+;			;]
+;			flags: [shared]
+;		]
+		"Rebol/Blend2D extension - x64" [
+			:r3-extension
+			:target-x64
+			compiler: clang
+			flag:    -dynamiclib
+			flag:    -mmacosx-version-min=10.9 
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
+			name: %blend2d-macos-x64
+			libraries: [%c %m %stdc++ %_static_x64/ %blend2d]
+		]
+		"Rebol/Blend2D extension - arm64 (only partial support in B2D!)" [
+			:r3-extension
+			:target-arm64
+			compiler: clang
+			flag:    -dynamiclib
+			flag:    -mmacosx-version-min=10.9 
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
+			name: %blend2d-macos-arm64
+			libraries: [%c %m %stdc++ %_static_arm64/ %blend2d]
+		]
+		"Test" [
+			name: %test
+			file: %test/test.c
+			compiler: clang
+			:target-x64
+			libraries: [%blend2d]
+		]
+	]
+	#if Linux? [
+		"Make 64bit Blend2D static library" [
+			arch: x64
+			cmd %_static_linux/ "cmake ../blend2d/ -DCMAKE_BUILD_TYPE=Release -DBLEND2D_STATIC=TRUE -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DASMJIT_DIR=../asmjit"
+			cmd %_static_linux/ {cmake --build .}
+		]
+		"Rebol extension" [
+			:r3-extension
+			:target-x64
+			compiler: clang
+			defines: [BL_STATIC BLEND2D_BUILD_NO_CXX_LIB=1]
+			name: %blend2d-linux-x64
+			libraries: [%c %m %stdc++ %_static_linux/ %blend2d]
+		]
+	]
+]
