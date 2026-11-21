@@ -17,8 +17,11 @@ Rebol [
 			r3 spline-art.r3
 	}
 ]
+
+;; Before Rebol will be able to handle it automatically,
+;; manually remove possibly embedded older Blend2D module.
 try [system/modules/blend2d: none]
-import 'blend2d
+import/version 'blend2d 0.21.3
 
 size:   1000x700
 centre: 500x290
@@ -27,16 +30,16 @@ centre: 500x290
 ;; A ribbon of `n` knots sweeping across (and a little past) the canvas.
 ribbon: func [
 	"Returns a block of knots along a sine wave"
-	base  [number!] "Vertical centre of the wave"
-	amp   [number!] "Amplitude"
-	phase [number!]
+	base  [ number!] "Vertical centre of the wave"
+	amp   [ number!] "Amplitude"
+	phase [ number!]
 	n     [integer!] "Number of knots"
 	/local out x y
 ][
 	out: make block! n
 	repeat i n [
 		x: -40 + (1080 * (i - 1) / (n - 1))
-		y: base + (amp * sine/radians (phase + (2.6 * pi * (i - 1) / (n - 1))))
+		y: base + (amp * sin (phase + (2.6 * pi * (i - 1) / (n - 1))))
 		append out as-pair x y
 	]
 	out
@@ -64,11 +67,11 @@ petal: [
 	spline 500x290 546x194 500x60 454x194 closed
 	rotate 30 500x290
 ]
-repeat i 12 [append cmds petal]
+append/dup cmds petal 12
 
 append cmds [
 	reset-matrix
-	pen false
+	pen off
 	fill 255.208.228.230
 	circle 500x290 26
 ]
@@ -81,7 +84,7 @@ foreach [color width wave] [
 	255.210.127.204 3.2 [456 64 2.5 ]
 ][
 	append cmds compose/only [
-		fill false
+		fill off
 		pen (color)
 		line-width (width)
 		line-cap 2
@@ -91,21 +94,21 @@ foreach [color width wave] [
 
 ;; The panel: the chords between the knots, the spline through them, and the
 ;; knots themselves on top.
-append cmds compose/only [
-	fill false
+append cmds [
+	fill off
 	pen 138.160.200.191
 	line-width 1.4
-	line (knots)
+	line :knots
 
 	pen 255.255.255
 	line-width 3
 	line-cap 2
-	spline (knots)
+	spline :knots
 
-	pen false
+	pen off
 	fill 255.95.158
 	point-size 11
-	point (knots)
+	point :knots
 ]
 
 ;; ----------------------------------------------------------------------------
@@ -113,4 +116,4 @@ img:  draw size cmds
 file: %spline-art.png
 
 save file img
-print ["Saved:" mold file "-" img/size]
+print ["Saved:" as-yellow to-local-file/full file "-" img/size]
