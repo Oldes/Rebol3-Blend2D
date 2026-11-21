@@ -21,7 +21,7 @@ Rebol [
 ;; Before Rebol will be able to handle it automatically,
 ;; manually remove possibly embedded older Blend2D module.
 try [system/modules/blend2d: none]
-import/version 'blend2d 0.21.3
+b2d: import/version 'blend2d 0.21.3
 
 size:   1000x700
 centre: 500x290
@@ -60,11 +60,20 @@ cmds: copy [
 
 ;; A rosette of twelve closed splines. Each one is the same four knots; the
 ;; matrix is what turns them into petals, so the gradient turns with them.
+;;
+;; The spline is solved into a path once and only drawn twelve times - as a
+;; `spline` command it would be parsed and solved again for every petal.
+;; The gradient has to stay inside the repeated block: Blend2D freezes the
+;; transformation of a style when the style is set, so a single `fill` in
+;; front of the loop would leave all twelve petals with the same, unrotated
+;; gradient.
+petal-path: b2d/path [spline 500x290 546x194 500x60 454x194 closed]
+
 petal: [
 	fill linear 255.95.158.184 0.0 43.27.107.184 1.0 500x60 500x290
 	pen 255.208.228.92
 	line-width 1.2
-	spline 500x290 546x194 500x60 454x194 closed
+	shape :petal-path
 	rotate 30 500x290
 ]
 append/dup cmds petal 12
