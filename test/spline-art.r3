@@ -37,10 +37,15 @@ ribbon: func [
 	/local out x y
 ][
 	out: make block! n
-	repeat i n [
-		x: -40 + (1080 * (i - 1) / (n - 1))
-		y: base + (amp * sin (phase + (2.6 * pi * (i - 1) / (n - 1))))
-		append out as-pair x y
+	;; the steps are counted once; the position and the angle are then just
+	;; advanced by them
+	x:  -40
+	dx: 1080 / (n - 1)
+	da: 2.6 * pi / (n - 1)
+	loop n [
+		append out as-pair x base + (amp * sin phase)
+		x:     x + dx
+		phase: phase + da
 	]
 	out
 ]
