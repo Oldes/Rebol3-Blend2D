@@ -12,6 +12,9 @@
 
 #include "gen-blend2d.h"
 #include "blend2d-command.h"
+#include "blend2d-spline.h"
+
+REBOOL b2d_spline_command(BLPathCore *path, REBSER *cmds, REBCNT *index_io);
 
 static const REBYTE *ERR_TARGET  = (const REBYTE*)"Blend2D failed to attach the target image!";
 static const REBYTE *ERR_CONTEXT = (const REBYTE*)"Blend2D failed to initialize a rendering context!";
@@ -402,6 +405,13 @@ COMMAND cmd_blend2d_draw(RXIFRM *frm, void *reb_ctx) {
 			if (count > 0) bl_path_poly_to(&path, (BLPoint*)doubles, count);
 			bl_path_close(&path);
 
+			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path)
+			bl_path_reset(&path);
+			break;
+
+
+		case W_BLEND2D_CMD_SPLINE:
+			if (!b2d_spline_command(&path, cmds, &index)) goto error;
 			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path)
 			bl_path_reset(&path);
 			break;

@@ -1,7 +1,7 @@
 REBOL [
 	Title:   "Rebol Blend2D Extension"
 	Name:    blend2d
-	Version: 0.21.3
+	Version: 0.21.4
 	Needs:   3.22.5
 	Author:  @Oldes
 	License: Apache-2.0
@@ -114,6 +114,7 @@ words: [
 		clip
 
 		font
+		spline
 		;- aliases (for compatibility)
 		fill-pen ; alias for `fill`
 	]

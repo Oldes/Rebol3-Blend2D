@@ -40,6 +40,9 @@ points-in-block: [
 	180x15.125 182x12.251 184x9.68 186x7.411 188x5.445 190x3.781 192x2.42 194x1.361 196x0.605 198x0.151
 	200x0
 ]
+;; knots of the `spline` examples - the chords, the curve and the dots are
+;; all drawn from these very same numbers
+spline-knots: [40x400 140x180 240x300 340x100 440x240]
 ;- assets end
 
 examples: [
@@ -426,6 +429,27 @@ examples: [
 		cubic 10x470 100x10 380x470 470x10 
 		pen 60.60.200 line-width 4.0
 		cubic 470x10 10x100 470x380 10x470
+	]
+
+	%spline [
+		;; unlike `cubic`, whose points steer the curve from outside, a
+		;; spline is interpolating - it passes through every knot
+		pen 0.0.0.100 line-width 1
+		line :spline-knots  ;; the chords between the knots
+		pen 200.60.60 line-width 6 line-cap 2
+		spline :spline-knots  ;; the curve through them
+		pen off fill 0.0.200.200
+		point-size 16
+		point :spline-knots  ;; and the knots themselves
+	]
+
+	%spline-closed [
+		;; the same four knots as a polygon and as a closed spline
+		line-width 4
+		pen 200.60.60 fill 200.200.200.100
+		polygon 240x60 400x240 240x420 80x240
+		pen 60.60.200 fill off
+		spline 240x60 400x240 240x420 80x240 closed
 	]
 
 	%shape-1 [

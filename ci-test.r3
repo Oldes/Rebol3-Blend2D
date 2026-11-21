@@ -393,6 +393,85 @@ group "draw: styles"
 --test-- "blend accepts a mode word"       [image? draw 8x8 [blend multiply fill 128.128.128 fill-all]]
 --test-- "blend none restores the default" [image? draw 8x8 [blend multiply blend none fill 255.0.0 fill-all]]
 
+
+;;=============================================================================
+group "draw: splines"
+;;=============================================================================
+;; The spline interpolates its knots, so a spline through three collinear
+;; points is a straight line through all of them.
+
+;; NOTE: the last knot is at x = 16 and the default cap is a butt one, so the
+;; stroke ends exactly on the left edge of pixel column 16 and covers none of
+;; it - the last column which gets any coverage is 15.
+--test-- "a spline passes through its knots" [
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline 0x8 8x8 16x8]
+	all [0 < pa d 0 8  0 < pa d 8 8  0 < pa d 15 8  0 == pa d 8 0]
+]
+--test-- "a stroke reaches the last knot with a square cap" [
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 line-cap 1 spline 0x8 8x8 16x8]
+	0 < pa d 16 8
+]
+--test-- "a spline is filled like a polygon" [
+	d: draw 17x17 [clear-all fill 255.0.0 spline 2x8 8x2 14x8 8x14]
+	(px d 8 8) == 255.0.0
+]
+--test-- "closed is accepted after the points (Red)" [
+	d: draw 17x17 [clear-all fill 255.0.0 spline 2x8 8x2 14x8 8x14 closed]
+	(px d 8 8) == 255.0.0
+]
+--test-- "closed is accepted before the points (Rebol2)" [
+	d: draw 17x17 [clear-all fill 255.0.0 spline closed 2x8 8x2 14x8 8x14]
+	(px d 8 8) == 255.0.0
+]
+--test-- "the Rebol2 segment count is accepted and ignored" [
+	a: draw 17x17 [clear-all fill 255.0.0 spline 2x8 8x2 14x8 8x14 closed]
+	b: draw 17x17 [clear-all fill 255.0.0 spline 10 closed 2x8 8x2 14x8 8x14]
+	(px a 8 8) == (px b 8 8)
+]
+--test-- "points from a block"  [
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline [0x8 8x8 16x8]]
+	0 < pa d 8 8
+]
+--test-- "points from an #(f64!) vector" [
+	v: #(f64! [0.0 8.0 8.0 8.0 16.0 8.0])
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline v]
+	0 < pa d 8 8
+]
+--test-- "two knots give a straight line" [
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline 0x8 16x8]
+	all [0 < pa d 8 8  0 == pa d 8 0]
+]
+--test-- "a single knot draws nothing" [
+	d: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline 8x8]
+	0 == pa d 8 8
+]
+--test-- "repeated knots are dropped, not drawn twice" [
+	a: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline 0x8 8x8 16x8]
+	b: draw 17x17 [clear-all pen 255.0.0 line-width 3 spline 0x8 8x8 8x8 16x8]
+	(px a 8 8) == (px b 8 8)
+]
+--test-- "a spline is also a path command" [
+	p: path [spline 0x8 8x0 16x8]
+	all [handle? p  3 <= p/size]
+]
+--test-- "a spline continues the path it is appended to" [
+	;; the current position becomes the first knot, so no new subpath starts
+	a: path [move 0x8 spline 8x0 16x8]
+	b: path [spline 0x8 8x0 16x8]
+	a/size == b/size
+]
+;; A dialect command which cannot be understood is skipped, not an error, so
+;; these check the recovery rather than a refusal.
+--test-- "a spline without any point is skipped" [
+	d: draw 8x8 [clear-all spline fill 255.0.0 fill-all]
+	is? (px d 0 0) 255.0.0
+]
+--test-- "a spline with a 32bit vector is skipped" [
+	v: #(i32! [0 8 8 8])
+	d: draw 8x8 [clear-all spline v fill 255.0.0 fill-all]
+	is? (px d 0 0) 255.0.0
+]
+
 ;;=============================================================================
 group "draw: clipping, clearing and the matrix"
 ;;=============================================================================

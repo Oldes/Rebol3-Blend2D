@@ -12,6 +12,9 @@
 
 #include "gen-blend2d.h"
 #include "blend2d-command.h"
+#include "blend2d-spline.h"
+
+REBOOL b2d_spline_command(BLPathCore *path, REBSER *cmds, REBCNT *index_io);
 
 static const REBYTE *ERR_NO_HANDLE = (const REBYTE*)"Blend2D failed to make a path handle!";
 
@@ -79,6 +82,11 @@ REBCNT b2d_init_path_from_block(BLPathCore *path, REBSER *cmds, REBCNT index) {
 				index += 3;
 				bl_path_cubic_to(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1), ARG_X(2), ARG_Y(2));
 			}
+			break;
+
+		case W_BLEND2D_CMD_SPLINE:
+			// continues from the current vertex when the path has one
+			if (!b2d_spline_command(path, cmds, &index)) goto error;
 			break;
 
 		case W_BLEND2D_CMD_CURV:

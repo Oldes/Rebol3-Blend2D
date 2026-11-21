@@ -1,15 +1,17 @@
 ;-    .-.                                                                       
-;-   /'v'\   SISKIN-Builder 3.25.3 project file                                 
+;-   /'v'\   SISKIN-Builder project file                                        
 ;-  (/uOu\)  https://github.com/Siskin-framework/Builder/                       
 ;-===="="=======================================================================
 ;-      For: https://github.com/Siskin-framework/Rebol-Blend2D                  
 ;-------------------------------------------------------------------------------
+needs:  [siskin 0.23.3]
 
 github: @asmjit  /v1.23
 github: @blend2d /v0.21.3
 ;github: blend2d/blend2d-samples
+github: @splines ;original: aurimasg/splines
 
-version: 0.21.3 ;; clang allows only x.y.z version naming!
+version: 0.21.4 ;; clang allows only x.y.z version naming!
 
 compiler: gcc
 needs:    cmake
@@ -85,6 +87,7 @@ target-arm64: [
 ]
 
 include: %blend2d/src/
+include: %splines/
 
 ;- generate the extension header, command table and README ---------------------
 ;; Produces %src/gen-blend2d.h and %src/gen-blend2d.c from the declarative
@@ -95,20 +98,28 @@ do %make-extension.r3 [%src/blend2d.reb]
 
 r3-extension: [
 	optimize: 3
-	source: %src/
 	files: only [
-		%blend2d.c
-		%gen-blend2d.c
-		%blend2d-command.c
-		%blend2d-command-draw.c
-		%blend2d-command-path.c
-		%blend2d-command-font.c
-		%blend2d-command-image.c
-		%blend2d-command-info.c
-		%blend2d-command-set-threads.c
+		%src/blend2d.c
+		%src/gen-blend2d.c
+		%src/blend2d-command.c
+		%src/blend2d-command-draw.c
+		%src/blend2d-command-path.c
+		%src/blend2d-command-font.c
+		%src/blend2d-command-image.c
+		%src/blend2d-command-info.c
+		%src/blend2d-command-set-threads.c
+		%src/blend2d-command-spline.c
+		%src/blend2d-spline.cpp
 		;; A scratch pad for native experiments; enable it here and in the
 		;; `commands:` block of %src/blend2d.reb at the same time.
 		;%blend2d-command-draw-test.c
+
+		%splines/Splines/SplineS9.cpp
+		%splines/Splines/S9Curve.cpp
+		%splines/Splines/GaussLegendre.cpp
+		%splines/Splines/TridiagonalSolver.cpp
+		%splines/Splines/FloatPoint.cpp
+		%splines/Splines/DeduplicatePoints.cpp
 	]
 	define: ENDIAN_LITTLE
 	define: BL_STATIC
@@ -120,6 +131,9 @@ r3-extension: [
 
 	cflags: -fpermissive
 	flags:  shared
+
+	;; The spline solver's CurveArray uses `requires` clauses.
+	cppflags: [-std=c++20]
 
 	#if macOS? [
 		lflags:  [-dynamiclib]
