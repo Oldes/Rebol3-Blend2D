@@ -2,19 +2,40 @@ Rebol [
 	title: "Basic Blend2D extension usage examples"
 ]
 
-CI?: "true" = get-env "CI"
-;; for the CI test the module is in current directory 
-if CI? [system/options/modules: what-dir]
+if CI?: any [
+	"true" = get-env "CI"
+	"true" = get-env "GITHUB_ACTIONS"
+	"true" = get-env "TRAVIS"
+	"true" = get-env "CIRCLECI"
+	"true" = get-env "GITLAB_CI"
+][
+	;; configure modules location for the CI test
+	system/options/modules: dirize to-rebol-file any [
+		get-env 'REBOL_MODULES_DIR
+		system/options/modules
+	]
+]
 
 system/modules/blend2d: none ;; make sure that we use the local one 
 b2d: import 'blend2d
 
 print b2d/info
 
-b2d/set-threads 1 ;; use asynchronous rendering
+b2d/set-threads 2 ;; use asynchronous rendering
 ;about
 
 ;recycle/torture
+
+;; Some used colors may not be defined.
+unless tuple? :gray [
+	gray:   128.128.128
+	red:    255.0.0
+	orange: 255.150.10
+	blue:   0.0.255
+	black:  0.0.0
+	purple: 128.0.128
+	olive:  128.128.0
+]
 
 ;- assets start
 texture: b2d/image %assets/texture.jpeg

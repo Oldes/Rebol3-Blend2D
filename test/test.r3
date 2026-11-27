@@ -2,9 +2,19 @@ Rebol [
 	title: "Basic Blend2D extension test"
 ]
 
-CI?: "true" = get-env "CI"
-;; for the CI test the module is in current directory 
-if CI? [system/options/modules: what-dir]
+if CI?: any [
+	"true" = get-env "CI"
+	"true" = get-env "GITHUB_ACTIONS"
+	"true" = get-env "TRAVIS"
+	"true" = get-env "CIRCLECI"
+	"true" = get-env "GITLAB_CI"
+][
+	;; configure modules location for the CI test
+	system/options/modules: dirize to-rebol-file any [
+		get-env 'REBOL_MODULES_DIR
+		system/options/modules
+	]
+]
 
 system/modules/blend2d: none ;; make sure that we use the local one 
 b2d: import 'blend2d
