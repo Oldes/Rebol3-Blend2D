@@ -31,7 +31,7 @@ jobs:
         EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest static-lib-x64
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
       run: ./siskin Rebol-Blend2D.nest --msvc -o ./blend2d-abi1-windows-x64.rebx blend2d-windows-x64
@@ -69,7 +69,7 @@ jobs:
         EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest static-lib-x64
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
       run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-macos-x64.rebx blend2d-macos-x64
@@ -108,7 +108,7 @@ jobs:
         EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest static-lib-arm64
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-arm64
 
     - name: Build 64bit Rebol Blend2d extension
       run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-macos-arm64.rebx blend2d-macos-arm64
@@ -144,7 +144,7 @@ jobs:
         EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest static-lib-x64
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
       run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-linux-x64.rebx blend2d-linux-x64
