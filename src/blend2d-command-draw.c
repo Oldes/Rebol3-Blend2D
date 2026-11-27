@@ -1,225 +1,313 @@
+//   ____  __   __        ______        __
+//  / __ \/ /__/ /__ ___ /_  __/__ ____/ /
+// / /_/ / / _  / -_|_-<_ / / / -_) __/ _ \
+// \____/_/\_,_/\__/___(@)_/  \__/\__/_// /
+//  ~~~ oldes.huhuman at gmail.com ~~~ /_/
 //
-// Blend2D experimental Rebol extension
-// ====================================
-// Use on your own risc!
+// Project: Rebol/Blend2D extension
+// SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+// The `draw` command - evaluates the drawing dialect into a Rebol image.
+//
 
-#include "blend2d-rebol-extension.h"
-//#include "stdio.h"
+#include "gen-blend2d.h"
+#include "blend2d-command.h"
+#include "blend2d-spline.h"
 
-extern REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT index);
+REBOOL b2d_spline_command(BLPathCore *path, REBSER *cmds, REBCNT *index_io);
 
-REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
+static const REBYTE *ERR_TARGET  = (const REBYTE*)"Blend2D failed to attach the target image!";
+static const REBYTE *ERR_CONTEXT = (const REBYTE*)"Blend2D failed to initialize a rendering context!";
+static const REBYTE *ERR_DRAW    = (const REBYTE*)"Blend2D draw failed!";
+
+
+// The first argument is either an image! to draw into, or a pair! - the size
+// of a new image. Either way the frame's first slot is left holding the image
+// which the command returns.
+REBSER* b2d_target_image(RXIFRM *frm, REBINT *width, REBINT *height) {
+	REBSER *reb_img;
+	REBINT w, h;
+
+	if (RXA_TYPE(frm, 1) == RXT_PAIR) {
+		REBXYF size = RXA_PAIR(frm, 1);
+		w = ROUND_TO_INT(size.x);
+		h = ROUND_TO_INT(size.y);
+		if (w <= 0 || h <= 0) return NULL;
+		reb_img = (REBSER*)RL_MAKE_IMAGE(w, h);
+	}
+	else {
+		w = RXA_IMAGE_WIDTH(frm, 1);
+		h = RXA_IMAGE_HEIGHT(frm, 1);
+		reb_img = (REBSER*)RXA_ARG(frm, 1).image;
+	}
+	if (reb_img == NULL || w <= 0 || h <= 0) return NULL;
+
+	RXA_TYPE(frm, 1) = RXT_IMAGE;
+	RXA_ARG(frm, 1).image  = reb_img;
+	RXA_ARG(frm, 1).width  = w;
+	RXA_ARG(frm, 1).height = h;
+	RXA_ARG(frm, 1).image_index = 0;
+
+	*width  = w;
+	*height = h;
+	return reb_img;
+}
+
+
+COMMAND cmd_blend2d_draw(RXIFRM *frm, void *reb_ctx) {
 	BLResult r;
 	BLImageCore img_target, img_pattern, img;
-	BLImageCore* current_img;
+	BLImageCore *current_img = NULL;
 	BLPatternCore pattern;
 	BLGradientCore gradient;
 	BLPathCore path;
 	BLFontCore font;
 	BLFontFaceCore font_face;
-	BLFontFaceCore* font_face_ext = NULL;
+	BLFontFaceCore *font_face_ext = NULL;
 
 	BLContextCore ctx;
-	REBXYF size;
-	REBINT w, h;
-	REBSER *reb_img = 0;
-	REBDEC alpha = 1, offset, sz = 0.0;
-	REBCNT err = 0;
-	REBSER *cmds;
-	REBCNT index, cmd_pos, cmd, type, cap, mode, count, i;
-	REBOOL has_fill = FALSE, has_stroke = FALSE;
-	REBDEC x, y, width = 1;
-	BLRect rect;
+	BLContextCreateInfo cci;
+	BLRect  rect;
 	BLRectI rectI;
 	BLPoint pt;
-	REBDEC font_size = 10.0;
-	REBDEC point[4] = { 0,0,1.0,1.0 }; // default size of the point is 2px
+	BLPoint origin = { 0, 0 };
 
-	blPathInit(&path);
-	blImageInit(&img_target);
-	blImageInit(&img_pattern);
-	blImageInit(&img);
-	blFontInit(&font);
-	blFontFaceInit(&font_face);
-	
-	if (RXA_TYPE(frm, 1) == RXT_PAIR) {
-		size = RXA_PAIR(frm, 1);
-		w = ROUND_TO_INT(size.x);
-		h = ROUND_TO_INT(size.y);
-		reb_img = (REBSER *)RL_MAKE_IMAGE(w,h);
+	REBINT  w, h;
+	REBSER *reb_img;
+	REBSER *cmds;
+	REBCNT  index, cmd_pos = 0, cmd = 0, type, mode, count, i;
+	REBCNT  err = BL_SUCCESS;
+	REBI64  cap;
+	REBOOL  has_fill = FALSE, has_stroke = FALSE;
+	REBDEC  offset, sz, width;
+	REBDEC  font_size = 10.0;
+	REBDEC  point[4] = { 0, 0, 1.0, 1.0 }; // default size of the point is 2px
+
+	REBDEC doubles[DOUBLE_BUFFER_SIZE];
+	RXIARG arg[ARG_BUFFER_SIZE];
+
+	bl_path_init(&path);
+	bl_image_init(&img_target);
+	bl_image_init(&img_pattern);
+	bl_image_init(&img);
+	bl_font_init(&font);
+	bl_font_face_init(&font_face);
+
+	reb_img = b2d_target_image(frm, &w, &h);
+	if (reb_img == NULL) RETURN_ERROR(ERR_TARGET);
+
+	r = bl_image_create_from_data(&img_target, w, h, BL_FORMAT_PRGB32,
+		SERIES_DATA(reb_img), (intptr_t)w * 4, BL_DATA_ACCESS_WRITE, NULL, NULL);
+	if (r != BL_SUCCESS) RETURN_ERROR(ERR_TARGET);
+
+	memset(&cci, 0, sizeof(cci));
+	cci.thread_count = Blend2D_thread_count;
+
+	r = bl_context_init_as(&ctx, &img_target, &cci);
+	if (r != BL_SUCCESS) {
+		bl_image_reset(&img_target);
+		RETURN_ERROR(ERR_CONTEXT);
 	}
-	else {
-		w = RXA_IMAGE_WIDTH(frm, 1);
-		h = RXA_IMAGE_HEIGHT(frm, 1);
-		reb_img = (REBSER *)RXA_ARG(frm,1).image;
-	}
-	RXA_TYPE(frm, 1) = RXT_IMAGE;
-	RXA_ARG(frm, 1).width = w;
-	RXA_ARG(frm, 1).height = h;
-	RXA_ARG(frm, 1).image = reb_img;
 
-	r = blImageCreateFromData(&img_target, w, h, BL_FORMAT_PRGB32, reb_img->data, (intptr_t)w * 4, NULL, NULL);
-	if (r != BL_SUCCESS) return r;
-
-	r = blContextInitAs(&ctx, &img_target, NULL);
-	if (r != BL_SUCCESS) return r;
-
-	cmds = RXA_SERIES(frm, 2);
+	cmds  = RXA_SERIES(frm, 2);
 	index = RXA_INDEX(frm, 2);
-				
-	while (index < cmds->tail) {
-		if (!fetch_word(cmds, index++, b2d_cmd_words, &cmd)) {
+
+	while (index < SERIES_TAIL(cmds)) {
+		if (!fetch_word(cmds, index++, Blend2d_cmd_words, &cmd)) {
 			trace("expected word as a command!");
 			goto error;
 		}
-	process_cmd: // label is used from error loop which skip all args until it reaches valid command
+	process_cmd: // reached from the error loop, which skips values until it finds a command
 
-		cmd_pos = index; // this could be used to report error position
+		cmd_pos = index; // used to report the error position
 		debug_print("cmd index: %u cmd: %u\n", index, cmd);
 		switch (cmd) {
 
-		case W_B2D_CMD_FILL	:
-		case W_B2D_CMD_FILL_PEN:
+		case W_BLEND2D_CMD_FILL:
+		case W_BLEND2D_CMD_FILL_PEN:
 
 			RESOLVE_ARG(0)
 			if (RXT_TUPLE == type) {
-				debug_print("Fill color: %u\n", TUPLE_TO_COLOR(arg[0]));
-				blContextSetFillStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
+				bl_context_set_fill_style_rgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_fill = TRUE;
 			}
 			else if (type == RXT_LOGIC) {
 				if (!arg[0].int32a) has_fill = FALSE;
-			} else if (type == RXT_HANDLE) {
-				REBHOB* hob = arg[0].handle.ptr;
-				if (hob->sym != Handle_BLImage) goto error;
-				current_img = (BLImageCore*)hob->data;
+			}
+			else if (type == RXT_HANDLE) {
+				if (!VAL_IS_HANDLE(arg[0], Handle_BLImage)) goto error;
+				current_img = (BLImageCore*)arg[0].handle.hob->data;
 				goto pattern_mode;
-			} else if (type == RXT_IMAGE) {
-				blImageReset(&img_pattern);
-				r = blImageCreateFromData(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
+			}
+			else if (type == RXT_IMAGE) {
+				bl_image_reset(&img_pattern);
+				r = bl_image_create_from_data(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32,
+					SERIES_DATA((REBSER*)arg[0].image), (intptr_t)arg[0].width * 4, BL_DATA_ACCESS_READ, NULL, NULL);
 				if (r != BL_SUCCESS) goto error;
 				current_img = &img_pattern;
 			pattern_mode:
-				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
+				if (fetch_mode(cmds, index, &mode, W_BLEND2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
 					index++;
 				} else {
 					mode = BL_EXTEND_MODE_REPEAT;
 				}
-				BLMatrix2D m;
-				blMatrix2DSetIdentity(&m);
-				blPatternInitAs(&pattern, current_img, NULL, mode , NULL);
-				blContextSetFillStyle(&ctx, &pattern);
+				bl_pattern_init_as(&pattern, current_img, NULL, mode, NULL);
+				bl_context_set_fill_style(&ctx, &pattern);
 				has_fill = TRUE;
-				blPatternReset(&pattern);
-			} else if (RXT_UNSET == type && fetch_mode(cmds, index-1, &mode, W_B2D_ARG_LINEAR, BL_GRADIENT_TYPE_MAX_VALUE)) {
+				bl_pattern_reset(&pattern);
+			}
+			else if (RXT_UNSET == type && fetch_mode(cmds, index - 1, &mode, W_BLEND2D_ARG_LINEAR, BL_GRADIENT_TYPE_MAX_VALUE)) {
 				// gradient fill
-				blGradientInit(&gradient);
-				blGradientCreate(&gradient, mode, doubles, 0, NULL, 0, NULL);
-				//blGradientSetExtendMode(&gradient, 0);
+				bl_gradient_init(&gradient);
+				bl_gradient_create(&gradient, mode, doubles, 0, NULL, 0, NULL);
+
 				RESOLVE_ARG(0)
 				while (type == RXT_TUPLE) {
 					RESOLVE_NUMBER_ARG(2, 1);
 					offset = doubles[1];
-					//debug_print("gradstop: %lf\n", offset);
-					blGradientAddStopRgba32(&gradient, offset, TUPLE_TO_COLOR(arg[0]));
+					bl_gradient_add_stop_rgba32(&gradient, offset, TUPLE_TO_COLOR(arg[0]));
 					RESOLVE_ARG(0)
 				}
 				index--;
 
 				RESOLVE_PAIR_ARG(0, 0);
-				RESOLVE_PAIR_ARG(0, 2);
 				if (mode == BL_GRADIENT_TYPE_RADIAL) {
+					RESOLVE_PAIR_ARG(0, 2);
 					RESOLVE_NUMBER_ARG(3, 4);
-					blGradientSetValues(&gradient, 0, doubles, 5);
+					bl_gradient_set_values(&gradient, 0, doubles, 5);
 				}
-				else {
-					blGradientSetValues(&gradient, 0, doubles, 4);
+				else if (mode == BL_GRADIENT_TYPE_LINEAR) {
+					RESOLVE_PAIR_ARG(0, 2);
+					bl_gradient_set_values(&gradient, 0, doubles, 4);
 				}
-				blContextSetFillStyle(&ctx, &gradient);
+				else { // conical
+					doubles[2] = 0; RESOLVE_NUMBER_ARG_OPTIONAL(0, 2)
+					doubles[3] = 1; RESOLVE_NUMBER_ARG_OPTIONAL(1, 3)
+					bl_gradient_set_extend_mode(&gradient, BL_EXTEND_MODE_REPEAT);
+					bl_gradient_set_values(&gradient, 0, doubles, 4);
+				}
+				bl_context_set_fill_style(&ctx, &gradient);
 				has_fill = TRUE;
-				blGradientReset(&gradient);
-
-			} else goto error;
+				bl_gradient_reset(&gradient);
+			}
+			else goto error;
 			break;
 
 
-		case W_B2D_CMD_PEN:
+		case W_BLEND2D_CMD_PEN:
+
 			RESOLVE_ARG(0)
 			if (RXT_TUPLE == type) {
-				blContextSetStrokeStyleRgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
+				bl_context_set_stroke_style_rgba32(&ctx, TUPLE_TO_COLOR(arg[0]));
 				has_stroke = TRUE;
-			} else if (type == RXT_LOGIC) {
-				if(!arg[0].int32a) has_stroke = FALSE;
-			} else if (type == RXT_IMAGE) {
-				blImageInit(&img_pattern);
-				r = blImageCreateFromData(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32, ((REBSER*)arg[0].series)->data, (intptr_t)arg[0].width * 4, NULL, NULL);
+			}
+			else if (type == RXT_LOGIC) {
+				if (!arg[0].int32a) has_stroke = FALSE;
+			}
+			else if (type == RXT_HANDLE) {
+				if (!VAL_IS_HANDLE(arg[0], Handle_BLImage)) goto error;
+				current_img = (BLImageCore*)arg[0].handle.hob->data;
+				goto stroke_pattern_mode;
+			}
+			else if (type == RXT_IMAGE) {
+				// NOTE: reset first - the previous pattern image, if any, is
+				// still held here (the old code initialized it a second time).
+				bl_image_reset(&img_pattern);
+				r = bl_image_create_from_data(&img_pattern, arg[0].width, arg[0].height, BL_FORMAT_PRGB32,
+					SERIES_DATA((REBSER*)arg[0].image), (intptr_t)arg[0].width * 4, BL_DATA_ACCESS_READ, NULL, NULL);
 				if (r != BL_SUCCESS) {
 					trace("failed to init pattern image!");
 					goto error;
 				}
-
-				if (fetch_mode(cmds, index, &mode, W_B2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
+				current_img = &img_pattern;
+			stroke_pattern_mode:
+				if (fetch_mode(cmds, index, &mode, W_BLEND2D_ARG_PAD, BL_EXTEND_MODE_MAX_VALUE)) {
 					index++;
 				} else {
 					mode = BL_EXTEND_MODE_REPEAT;
 				}
-				BLMatrix2D m;
-				blMatrix2DSetIdentity(&m);
-				blPatternInitAs(&pattern, &img_pattern, NULL, mode , NULL);
-				blContextSetFillStyle(&ctx, &pattern);
+				bl_pattern_init_as(&pattern, current_img, NULL, mode, NULL);
+				// NOTE: this used to set the FILL style, so a pattern pen
+				// silently replaced the fill and never stroked anything.
+				bl_context_set_stroke_style(&ctx, &pattern);
 				has_stroke = TRUE;
-				blPatternReset(&pattern);
-			} else goto error;
+				bl_pattern_reset(&pattern);
+			}
+			else goto error;
 			break;
 
 
-		case W_B2D_CMD_LINE:
+		case W_BLEND2D_CMD_LINE:
 			if (has_stroke) {
 				RESOLVE_ARG(0)
 				if (RXT_PAIR == type) {
-					blPathMoveTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+					bl_path_move_to(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
 					type = RL_GET_VALUE(cmds, index, &arg[0]);
 					while (RXT_PAIR == type) {
-						blPathLineTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+						bl_path_line_to(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
 						type = RL_GET_VALUE(cmds, ++index, &arg[0]);
 					}
 				}
+				else if (RXT_BLOCK == type) {
+					REBSER *blk = (REBSER*)arg[0].series;
+					REBCNT  n   = arg[0].index;
+					type = RL_GET_VALUE(blk, n, &arg[0]);
+					if (RXT_PAIR != type) goto error;
+					bl_path_move_to(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+					type = RL_GET_VALUE(blk, ++n, &arg[0]);
+					while (RXT_PAIR == type) {
+						bl_path_line_to(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+						type = RL_GET_VALUE(blk, ++n, &arg[0]);
+					}
+				}
 				else if (RXT_VECTOR == type) {
-					REBSER *ser_points = arg[0].series;
-					if (VTSF64 != VECT_TYPE(ser_points)) goto error;
-					REBCNT cnt_points = SERIES_LEN(ser_points)-1;
-					REBDEC *points = (REBDEC*)SERIES_DATA(ser_points);
+					// a vector of 64bit decimal coordinates, followed by a
+					// vector of 32bit integer point indexes (edges)
+					REBSER *ser_points = (REBSER*)arg[0].vector.series;
+					REBCNT  info       = arg[0].vector.info;
+					REBCNT  ind        = arg[0].vector.index;
+					REBDEC *points;
+					REBINT *edges;
+					REBINT  cnt_points, cnt_edges, prev = 0;
+					REBSER *ser_edges;
+
+					if (!RXI_VECTOR_FLOAT(info) || RXI_VECTOR_BITS(info) != 64) goto error;
+					points     = (REBDEC*)SERIES_DATA(ser_points) + ind;
+					cnt_points = (REBINT)(SERIES_TAIL(ser_points) - ind);
+
 					RESOLVE_ARG(0);
 					if (RXT_VECTOR != type) goto error;
-					REBSER *ser_edges = arg[0].series;
-					if (VTSI32 != VECT_TYPE(ser_edges)) goto error;
-					REBINT *edges = (REBINT *)SERIES_DATA(ser_edges);
-					REBCNT prev = 0;
-					for (i = 0; i < SERIES_LEN(ser_edges) - 1; i+=2) {
-						REBCNT p1 = (REBCNT)edges[i] << 1;
-						REBCNT p2 = (REBCNT)edges[i+1] << 1;
-						//debug_print("p1: %i p2: %i  %i\n", p1, p2, cnt_points );
-						if (p1 >= 0 && p1 < cnt_points && p2 >= 0 && p2 < cnt_points) {
+					ser_edges = (REBSER*)arg[0].vector.series;
+					info      = arg[0].vector.info;
+					ind       = arg[0].vector.index;
+					if (RXI_VECTOR_FLOAT(info) || RXI_VECTOR_BITS(info) != 32 || !RXI_VECTOR_SIGNED(info)) goto error;
+					edges     = (REBINT*)SERIES_DATA(ser_edges) + ind;
+					cnt_edges = (REBINT)(SERIES_TAIL(ser_edges) - ind);
+
+					for (i = 0; (REBINT)i + 1 < cnt_edges; i += 2) {
+						REBINT p1 = edges[i]     * 2;
+						REBINT p2 = edges[i + 1] * 2;
+						if (p1 >= 0 && p1 + 1 < cnt_points && p2 >= 0 && p2 + 1 < cnt_points) {
 							if (i == 0 || prev != p1) {
-							//	debug_print("%i M %lfx%lf %lfx%lf\n", i, points[p1], points[p1+1], points[p2], points[p2+1]);
-								blPathMoveTo(&path, points[p1], points[p1+1]);
-								blPathLineTo(&path, points[p2], points[p2+1]);
+								bl_path_move_to(&path, points[p1], points[p1 + 1]);
+								bl_path_line_to(&path, points[p2], points[p2 + 1]);
 							}
 							else {
-							//	debug_print("%i L %lfx%lf %lfx%lf\n", i, points[p1], points[p1+1], points[p2], points[p2+1]);
-								blPathLineTo(&path, points[p1], points[p1+1]);
-								blPathLineTo(&path, points[p2], points[p2+1]);
+								bl_path_line_to(&path, points[p1], points[p1 + 1]);
+								bl_path_line_to(&path, points[p2], points[p2 + 1]);
 							}
 							prev = p2;
 						}
 					}
-				} else goto error;
-				blContextStrokePathD(&ctx, &path);
-				blPathReset(&path);
+				}
+				else goto error;
+				bl_context_stroke_path_d(&ctx, &origin, &path);
+				bl_path_reset(&path);
 			}
 			break;
 
-		case W_B2D_CMD_LINE_WIDTH:
+
+		case W_BLEND2D_CMD_LINE_WIDTH:
 
 			RESOLVE_NUMBER_ARG(0, 0)
 			width = doubles[0];
@@ -229,18 +317,19 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			else {
 				has_stroke = TRUE;
-				blContextSetStrokeWidth(&ctx, width);
+				bl_context_set_stroke_width(&ctx, width);
 			}
 			break;
 
-		case W_B2D_CMD_LINE_JOIN:
-			if (fetch_mode(cmds, index, &mode, W_B2D_ARG_MITER, 3)) {
+
+		case W_BLEND2D_CMD_LINE_JOIN:
+			if (fetch_mode(cmds, index, &mode, W_BLEND2D_ARG_MITER, 3)) {
 				index++;
 				switch (mode) {
-				case  0: // mitter, check for bevel or round variant
-					if (fetch_mode(cmds, index, &mode, W_B2D_ARG_BEVEL, 2)) {
+				case  0: // miter, check for the bevel or round variant
+					if (fetch_mode(cmds, index, &mode, W_BLEND2D_ARG_BEVEL, 2)) {
 						index++;
-						type = mode + 1; //BL_STROKE_JOIN_MITER_BEVEL or BL_STROKE_JOIN_MITER_ROUND
+						type = mode + 1; // BL_STROKE_JOIN_MITER_BEVEL or BL_STROKE_JOIN_MITER_ROUND
 					}
 					else {
 						type = BL_STROKE_JOIN_MITER_CLIP;
@@ -251,80 +340,87 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				}
 			}
 			else goto error;
-			//debug_print("StrokeJoin: %u\n", type);
-			blContextSetStrokeJoin(&ctx, type);
+			bl_context_set_stroke_join(&ctx, type);
 			break;
 
-		case W_B2D_CMD_LINE_CAP:
+
+		case W_BLEND2D_CMD_LINE_CAP:
 
 			//TODO: use words instead of integers?
 			RESOLVE_INT_ARG(0);
 			cap = arg[0].int64;
-			if (cap >= BL_STROKE_CAP_MAX_VALUE) goto error; //invalid cap value
-			
+			if (cap < 0 || cap > BL_STROKE_CAP_MAX_VALUE) goto error; // invalid cap value
+
 			RESOLVE_INT_ARG_OPTIONAL(1); // end cap
 			if (RXT_INTEGER == type) {
-				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_START, cap);
+				bl_context_set_stroke_cap(&ctx, BL_STROKE_CAP_POSITION_START, (uint32_t)cap);
 				cap = arg[1].int64;
-				if (cap >= BL_STROKE_CAP_MAX_VALUE) {
-					//invalid cap value
-				}
-				blContextSetStrokeCap(&ctx, BL_STROKE_CAP_POSITION_END, cap);
+				if (cap < 0 || cap > BL_STROKE_CAP_MAX_VALUE) goto error; // invalid cap value
+				bl_context_set_stroke_cap(&ctx, BL_STROKE_CAP_POSITION_END, (uint32_t)cap);
 			}
 			else {
-				blContextSetStrokeCaps(&ctx, cap);
+				bl_context_set_stroke_caps(&ctx, (uint32_t)cap);
 			}
 			break;
 
-		case W_B2D_CMD_CUBIC:
+
+		case W_BLEND2D_CMD_CUBIC:
 
 			type = RL_GET_VALUE(cmds, index++, &arg[0]);
 			if (RXT_PAIR == type) {
-				blPathMoveTo(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+				bl_path_move_to(&path, (double)arg[0].pair.x, (double)arg[0].pair.y);
 			} else goto error;
 			while (FETCH_3_PAIRS(cmds, index, arg[1], arg[2], arg[3])) {
-				r = blPathCubicTo(&path,
+				bl_path_cubic_to(&path,
 					(double)arg[1].pair.x, (double)arg[1].pair.y,
 					(double)arg[2].pair.x, (double)arg[2].pair.y,
 					(double)arg[3].pair.x, (double)arg[3].pair.y
 				);
 				index += 3;
 			}
-			if (has_fill) blContextFillPathD(&ctx, &path);
-			if (has_stroke) blContextStrokePathD(&ctx, &path);
-			
-			blPathReset(&path);
+			if (has_fill  ) bl_context_fill_path_d  (&ctx, &origin, &path);
+			if (has_stroke) bl_context_stroke_path_d(&ctx, &origin, &path);
+
+			bl_path_reset(&path);
 			break;
 
 
-		case W_B2D_CMD_POLYGON:
-			
+		case W_BLEND2D_CMD_POLYGON:
+
 			RESOLVE_PAIR_ARG(0, 0)
-			blPathMoveTo(&path, doubles[0], doubles[1]);
+			bl_path_move_to(&path, doubles[0], doubles[1]);
 			count = 0; i = 0;
 			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0])) {
 				index++;
 				count++;
 				doubles[i++] = arg[0].pair.x;
 				doubles[i++] = arg[0].pair.y;
-				if(i >= DOUBLE_BUFFER_SIZE) {
-					// we could extend the buffer here, or just continue processing in batches and save little memory.
-					blPathPolyTo(&path, (BLPoint*)doubles, count);
+				if (i >= DOUBLE_BUFFER_SIZE) {
+					// the buffer could be extended here; processing in
+					// batches instead keeps the memory use flat.
+					bl_path_poly_to(&path, (BLPoint*)doubles, count);
 					count = 0; i = 0;
 				}
 			}
-			if (count > 0) blPathPolyTo(&path, (BLPoint*)doubles, count);
-			blPathClose(&path);
-			
+			if (count > 0) bl_path_poly_to(&path, (BLPoint*)doubles, count);
+			bl_path_close(&path);
+
 			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path)
-			blPathReset(&path);
+			bl_path_reset(&path);
 			break;
 
 
-		case W_B2D_CMD_BOX:
+		case W_BLEND2D_CMD_SPLINE:
+			if (!b2d_spline_command(&path, cmds, &index)) goto error;
+			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path)
+			bl_path_reset(&path);
+			break;
 
-			RESOLVE_PAIR_ARG(0, 0)
-			RESOLVE_PAIR_ARG(1, 2) // bottom-right
+
+		case W_BLEND2D_CMD_BOX:
+
+			RESOLVE_PAIR_ARG(0, 0) // top-left
+			RESOLVE_PAIR_ARG(1, 2) // size (Blend2D's RECTD is x, y, w, h)
 			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[2]);
 			if (type == RXT_DECIMAL || type == RXT_INTEGER) {
 				index++;
@@ -341,12 +437,12 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			} else {
 				mode = BL_GEOMETRY_TYPE_RECTD;
 			}
-			debug_print("box type: %u size: %f %f %f %f radius: %f %f\n", mode, doubles[0],doubles[1],doubles[2],doubles[3], doubles[4], doubles[5]);
+			debug_print("box type: %u size: %f %f %f %f radius: %f %f\n", mode, doubles[0], doubles[1], doubles[2], doubles[3], doubles[4], doubles[5]);
 			DRAW_GEOMETRY(ctx, mode, doubles);
 			break;
 
 
-		case W_B2D_CMD_CIRCLE:
+		case W_BLEND2D_CMD_CIRCLE:
 
 			RESOLVE_PAIR_ARG(0, 0)   // center
 			RESOLVE_NUMBER_ARG(1, 2) // radius or radius-x
@@ -360,7 +456,7 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			break;
 
 
-		case W_B2D_CMD_ELLIPSE:
+		case W_BLEND2D_CMD_ELLIPSE:
 
 			RESOLVE_PAIR_ARG(0, 0) // top-left
 			RESOLVE_PAIR_ARG(1, 2) // size
@@ -371,42 +467,63 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_ELLIPSE, doubles);
 			break;
 
-		case W_B2D_CMD_POINT:
 
-			type = RESOLVE_ARG(0); // center
+		case W_BLEND2D_CMD_POINT:
+
+			RESOLVE_ARG(0); // center
 			if (type == RXT_PAIR) {
-				// it's allowed to have one or more pairs...
+				// one or more pairs are allowed...
 				while (type == RXT_PAIR) {
 					point[0] = arg[0].pair.x;
 					point[1] = arg[0].pair.y;
 					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
-					type = RESOLVE_PAIR_ARG(0, 0);
+					RESOLVE_ARG(0);
 				}
-				index--; // reset index back as the last resolved arg is not a pair anymore
+				index--; // the last resolved value is not a pair anymore
 			}
 			else if (type == RXT_VECTOR) {
-				REBSER* vect = (REBSER*)arg[0].series;
-				REBCNT  ind  = arg[0].index;
-				REBCNT  num  = (vect->tail - ind) >> 1; // 2 values per point
-				REBDEC* data = (REBDEC*)vect->data + ind; // the value may not be at head
+				REBSER *vect = (REBSER*)arg[0].vector.series;
+				REBCNT  info = arg[0].vector.info;
+				REBCNT  ind  = arg[0].vector.index;
+				REBCNT  num;
+				REBDEC *data;
 
-				while(num-- > 0) {
+				if (!RXI_VECTOR_FLOAT(info) || RXI_VECTOR_BITS(info) != 64) goto error;
+				num  = (SERIES_TAIL(vect) - ind) >> 1;        // 2 values per point
+				data = (REBDEC*)SERIES_DATA(vect) + ind;      // the value may not be at head
+
+				while (num-- > 0) {
 					point[0] = data[0];
 					point[1] = data[1];
 					data += 2;
 					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
 				}
 			}
+			else if (RXT_BLOCK == type) {
+				REBSER *blk = (REBSER*)arg[0].series;
+				REBCNT  ind = arg[0].index;
+				type = RL_GET_VALUE(blk, ind, &arg[0]);
+				if (RXT_PAIR != type) goto error;
+				while (RXT_PAIR == type) {
+					point[0] = (double)arg[0].pair.x;
+					point[1] = (double)arg[0].pair.y;
+					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_CIRCLE, point);
+					type = RL_GET_VALUE(blk, ++ind, &arg[0]);
+				}
+			}
+			else goto error;
 			break;
 
-		case W_B2D_CMD_POINT_SIZE:
-			RESOLVE_NUMBER_ARG(1, 0); // radius
+
+		case W_BLEND2D_CMD_POINT_SIZE:
+			RESOLVE_NUMBER_ARG(1, 0); // diameter
 			point[2] = doubles[0] * 0.5;
 			point[3] = doubles[0] * 0.5;
 			break;
 
-		case W_B2D_CMD_TRIANGLE:
-			type = RESOLVE_ARG(0);
+
+		case W_BLEND2D_CMD_TRIANGLE:
+			RESOLVE_ARG(0);
 			if (RXT_PAIR == type) {
 				index--;
 				while (FETCH_3_PAIRS(cmds, index, arg[0], arg[1], arg[2])) {
@@ -421,10 +538,15 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				}
 			}
 			else if (RXT_VECTOR == type) {
-				REBSER* vect = (REBSER*)arg[0].series;
-				REBCNT  ind = arg[0].index;
-				REBCNT  num = (REBCNT)floor((REBDEC)(vect->tail - ind) / 6); // 6 values per triangle (3 points)
-				REBDEC* data = (REBDEC*)vect->data + ind;
+				REBSER *vect = (REBSER*)arg[0].vector.series;
+				REBCNT  info = arg[0].vector.info;
+				REBCNT  ind  = arg[0].vector.index;
+				REBCNT  num;
+				REBDEC *data;
+
+				if (!RXI_VECTOR_FLOAT(info) || RXI_VECTOR_BITS(info) != 64) goto error;
+				num  = (SERIES_TAIL(vect) - ind) / 6;    // 6 values per triangle (3 points)
+				data = (REBDEC*)SERIES_DATA(vect) + ind;
 
 				while (num-- > 0) {
 					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_TRIANGLE, data);
@@ -434,7 +556,8 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			else goto error;
 			break;
 
-		case W_B2D_CMD_ARC:
+
+		case W_BLEND2D_CMD_ARC:
 
 			RESOLVE_PAIR_ARG(0, 0)    // center
 			RESOLVE_PAIR_ARG(1, 2)    // radius
@@ -445,50 +568,47 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			TO_RADIANS(doubles[5]);
 
 			// arc, pie or chord?
-			type = RL_GET_VALUE(cmds, index, &arg);
-			if (fetch_word(cmds, index, b2d_arg_words, &cmd) && cmd >= W_B2D_ARG_PIE && cmd <= W_B2D_ARG_CHORD) {
+			if (fetch_word(cmds, index, Blend2d_arg_words, &cmd) && cmd >= W_BLEND2D_ARG_PIE && cmd <= W_BLEND2D_ARG_CHORD) {
 				index++;
-				type = (cmd == W_B2D_ARG_CHORD) ? BL_GEOMETRY_TYPE_CHORD : BL_GEOMETRY_TYPE_PIE;
+				type = (cmd == W_BLEND2D_ARG_CHORD) ? BL_GEOMETRY_TYPE_CHORD : BL_GEOMETRY_TYPE_PIE;
 			}
 			else {
 				type = BL_GEOMETRY_TYPE_ARC;
 			}
 			DRAW_GEOMETRY(ctx, type, doubles);
-
 			break;
 
 
-		case W_B2D_CMD_IMAGE:
-			// image area (could be used for texture atlas)
+		case W_BLEND2D_CMD_IMAGE: {
+			// image area (could be used for a texture atlas)
+			BLImageData imgData;
+			REBOOL scaledImage = FALSE;
+
 			rectI.x = 0;
 			rectI.y = 0;
-			BLImageData imgData;
 
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_HANDLE) {
-				REBHOB* hob = arg[0].handle.ptr;
-				if (hob->sym != Handle_BLImage) goto error;
-				current_img = (BLImageCore*)hob->data;
+				if (!VAL_IS_HANDLE(arg[0], Handle_BLImage)) goto error;
+				current_img = (BLImageCore*)arg[0].handle.hob->data;
 			}
 			else {
-				blImageReset(&img);
-				r = b2d_init_image_from_arg(&img, arg[0], type);
-				if (r != BL_SUCCESS) goto end_ctx; //error!
+				r = b2d_init_image_from_arg(&img, &arg[0], type);
+				if (r != BL_SUCCESS) { err = r; goto end_ctx; }
 				current_img = &img;
 			}
-	
-			blImageGetData(current_img, &imgData);
+
+			bl_image_get_data(current_img, &imgData);
 			rectI.w = imgData.size.w;
 			rectI.h = imgData.size.h;
-	
 
 			RESOLVE_PAIR_ARG(1, 0) // top-left
-			pt.x = doubles[0]; // x
-			pt.y = doubles[1]; // y
+			pt.x = doubles[0];
+			pt.y = doubles[1];
 
-			// bottom-right (optional):
-			REBOOL scaledImage = FALSE;
-			
+			// size of the destination rectangle (optional):
+			// NOTE: the value is already consumed by the macro - the old code
+			// skipped one more value here.
 			RESOLVE_PAIR_ARG_OPTIONAL(2, 0)
 			if (type == RXT_PAIR) {
 				scaledImage = TRUE;
@@ -496,73 +616,54 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				rect.y = pt.y;
 				rect.w = doubles[0];
 				rect.h = doubles[1];
-				index++;
 			}
-			debug_print("blitImage size: %i %i at: %f %f\n",  rectI.w, rectI.h, pt.x, pt.y);
+			debug_print("blitImage size: %i %i at: %f %f\n", rectI.w, rectI.h, pt.x, pt.y);
 			if (scaledImage) {
-				blContextBlitScaledImageD(&ctx, &rect, current_img, &rectI);
+				bl_context_blit_scaled_image_d(&ctx, &rect, current_img, &rectI);
 			}
 			else {
-				blContextBlitImageD(&ctx, &pt, current_img, &rectI);
+				bl_context_blit_image_d(&ctx, &pt, current_img, &rectI);
 			}
-			trace("done");
 			break;
+		}
 
-		case W_B2D_CMD_FONT:
-			blFontReset(&font);
+
+		case W_BLEND2D_CMD_FONT:
+			bl_font_reset(&font);
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_HANDLE) {
-				REBHOB* hob = arg[0].handle.ptr;
-				font_face_ext = (BLFontFaceCore*)hob->data;
-
-				debug_print("Font handle: %p\n", font_face_ext);
-				if (hob->sym != Handle_BLFontFace) {
+				if (!VAL_IS_HANDLE(arg[0], Handle_BLFontFace)) {
 					trace("Invalid font handle type!");
 					font_face_ext = NULL;
 					goto error;
 				}
-				blFontCreateFromFace(&font, font_face_ext, font_size);
+				font_face_ext = (BLFontFaceCore*)arg[0].handle.hob->data;
+				debug_print("Font handle: %p\n", (void*)font_face_ext);
+				bl_font_create_from_face(&font, font_face_ext, (float)font_size);
 			}
 			else if (type == RXT_FILE || type == RXT_STRING) {
+				REBSER *file = b2d_file_arg(&arg[0], type);
 				font_face_ext = NULL;
-				REBSER *src = arg[0].series;
-				REBSER *file = RL_ENCODE_UTF8_STRING(SERIES_DATA(src), SERIES_TAIL(src), SERIES_WIDE(src)>1, FALSE);
-				r = blFontFaceCreateFromFile(&font_face, SERIES_DATA(file), BL_FILE_READ_MMAP_ENABLED | BL_FILE_READ_MMAP_AVOID_SMALL);
-				debug_print("r: %i\n", r);
-				if (BL_SUCCESS != r ) {
-					debug_print("Failed to load font! (%s) %i\n", SERIES_DATA(file), r);
+				if (file == NULL) goto error;
+				bl_font_face_reset(&font_face);
+				r = bl_font_face_create_from_file(&font_face, SERIES_TEXT(file), BL_FILE_READ_MMAP_ENABLED | BL_FILE_READ_MMAP_AVOID_SMALL);
+				if (BL_SUCCESS != r) {
+					debug_print("Failed to load font! (%s) %i\n", SERIES_TEXT(file), r);
 					goto error;
 				}
-				blFontCreateFromFace(&font, &font_face, font_size);
+				bl_font_create_from_face(&font, &font_face, (float)font_size);
 			}
-			/*
-			BLFontDesignMetrics dm;
-			BLFontMetrics fm;
-
-			blFontGetDesignMetrics(&font, &dm);
-			blFontGetMetrics(&font, &fm);
-
-			debug_print("fm.size: %f\n", fm.size);
-			debug_print("fm.lineGap: %f\n", fm.lineGap);
-			debug_print("fm.xHeight: %f\n", fm.xHeight);
-			debug_print("fm.capHeight: %f\n", fm.capHeight);
-			debug_print("fm.underlinePosition: %f\n", fm.underlinePosition);
-			debug_print("fm.underlineThickness: %f\n", fm.underlineThickness);
-			debug_print("fm.strikethroughPosition: %f\n", fm.strikethroughPosition);
-			debug_print("fm.strikethroughThickness: %f\n", fm.strikethroughThickness);
-
-			debug_print("unitsPerEm: %i\n", dm.unitsPerEm);
-			debug_print("ascent: %i\n", dm.ascent);
-			debug_print("descent: %i\n", dm.descent);
-			*/
+			else goto error;
 			break;
 
 
-		case W_B2D_CMD_TEXT:
+		case W_BLEND2D_CMD_TEXT: {
+			REBSER *str;
 
 			RESOLVE_PAIR_ARG(0, 0) // position
 			pt.x = doubles[0];
 			pt.y = doubles[1];
+
 			// size (optional):
 			sz = 0.0;
 			RESOLVE_NUMBER_ARG_OPTIONAL(1, 3);
@@ -574,89 +675,94 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 			}
 			if (sz != font_size && sz > 0.0) {
 				font_size = sz;
-				blFontReset(&font);
-				blFontCreateFromFace(&font, (font_face_ext == NULL ? &font_face : font_face_ext), font_size);
+				bl_font_reset(&font);
+				bl_font_create_from_face(&font, (font_face_ext == NULL ? &font_face : font_face_ext), (float)font_size);
 				debug_print("font_size: %f\n", font_size);
-				BLFontMatrix fmm;
-				blFontGetMatrix(&font, &fmm);
-				debug_print("fmm: %f %f %f %f\n", fmm.m00, fmm.m01, fmm.m10, fmm.m11);
 			}
 
 			RESOLVE_STRING_ARG(3) // text
 
-			BLGlyphBufferCore gb;
-			blGlyphBufferInit(&gb);
-			REBSER *str = (REBSER*)arg[3].series;
-			debug_print("txt: %s\n", SERIES_DATA(str));
-			blGlyphBufferSetText(&gb, SERIES_DATA(str), SERIES_LEN(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
-			BLTextMetrics tm;
-			blFontGetTextMetrics(&font, &gb, &tm);
-			debug_print("siz: %f %f %f %f\n", tm.boundingBox.x0, tm.boundingBox.y0, tm.boundingBox.x1, tm.boundingBox.y1);
-
-			blContextFillTextD(&ctx, &pt, &font, SERIES_DATA(str), SERIES_TAIL(str), SERIES_WIDE(str)==1?BL_TEXT_ENCODING_LATIN1:BL_TEXT_ENCODING_UTF16);
-			blGlyphBufferReset(&gb);
-
+			str = (REBSER*)arg[3].series;
+			if (BYTE_SIZE(str)) {
+				// all Rebol strings are UTF-8 encoded now
+				bl_context_fill_utf8_text_d(&ctx, &pt, &font, SERIES_TEXT(str), SERIES_TAIL(str));
+			} else {
+				bl_context_fill_utf16_text_d(&ctx, &pt, &font, (uint16_t*)SERIES_DATA(str), SERIES_TAIL(str));
+			}
 			break;
+		}
 
-		case W_B2D_CMD_SCALE:
+
+		case W_BLEND2D_CMD_SCALE:
 			RESOLVE_NUMBER_OR_PAIR_ARG(0, 0);
-			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_SCALE, doubles);
+			bl_context_apply_transform_op(&ctx, BL_TRANSFORM_OP_POST_SCALE, doubles);
 			break;
 
-		case W_B2D_CMD_ROTATE:
+
+		case W_BLEND2D_CMD_ROTATE:
 			RESOLVE_NUMBER_ARG(0, 0);
 			TO_RADIANS(doubles[0]);
 			RESOLVE_PAIR_ARG_OPTIONAL(1, 1);
-			blContextMatrixOp(&ctx, type ? BL_MATRIX2D_OP_POST_ROTATE_PT : BL_MATRIX2D_OP_POST_ROTATE, doubles);
+			bl_context_apply_transform_op(&ctx, type ? BL_TRANSFORM_OP_POST_ROTATE_PT : BL_TRANSFORM_OP_POST_ROTATE, doubles);
 			break;
 
-		case W_B2D_CMD_TRANSLATE:
+
+		case W_BLEND2D_CMD_TRANSLATE:
 			RESOLVE_PAIR_ARG(0, 0);
-			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_POST_TRANSLATE, doubles);
+			bl_context_apply_transform_op(&ctx, BL_TRANSFORM_OP_POST_TRANSLATE, doubles);
 			break;
 
-		case W_B2D_CMD_RESET_MATRIX:
-			blContextMatrixOp(&ctx, BL_MATRIX2D_OP_RESET, NULL);
+
+		case W_BLEND2D_CMD_RESET_MATRIX:
+			bl_context_apply_transform_op(&ctx, BL_TRANSFORM_OP_RESET, NULL);
 			break;
 
-		case W_B2D_CMD_ALPHA:
+
+		case W_BLEND2D_CMD_ALPHA:
 			RESOLVE_NUMBER_ARG(0, 0);
-			blContextSetGlobalAlpha(&ctx, doubles[0]);
+			bl_context_set_global_alpha(&ctx, doubles[0]);
 			break;
 
-		case W_B2D_CMD_BLEND:
-		case W_B2D_CMD_COMPOSITE:
+
+		case W_BLEND2D_CMD_BLEND:
+		case W_BLEND2D_CMD_COMPOSITE:
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
-			if (fetch_mode(cmds, index - 1, &mode, W_B2D_ARG_SOURCE_OVER, BL_COMP_OP_MAX_VALUE)) {
+			if (fetch_mode(cmds, index - 1, &mode, W_BLEND2D_ARG_SOURCE_OVER, BL_COMP_OP_MAX_VALUE)) {
 				debug_print("mode: %i\n", mode);
-				blContextSetCompOp(&ctx, mode);
-			} else if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) { // blend none or blend off
-				blContextSetCompOp(&ctx, BL_COMP_OP_SRC_OVER);
-			} else goto error;
+				bl_context_set_comp_op(&ctx, mode);
+			}
+			else if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) { // blend none or blend off
+				bl_context_set_comp_op(&ctx, BL_COMP_OP_SRC_OVER);
+			}
+			else goto error;
 			break;
 
-		case W_B2D_CMD_FILL_ALL:
-			blContextFillAll(&ctx);
+
+		case W_BLEND2D_CMD_FILL_ALL:
+			bl_context_fill_all(&ctx);
 			break;
 
-		case W_B2D_CMD_CLEAR_ALL:
-			blContextClearAll(&ctx);
+
+		case W_BLEND2D_CMD_CLEAR_ALL:
+			bl_context_clear_all(&ctx);
 			break;
-		
-		case W_B2D_CMD_CLEAR:
+
+
+		case W_BLEND2D_CMD_CLEAR:
 			RESOLVE_PAIR_ARG(0, 0);
 			RESOLVE_PAIR_ARG(1, 2);
 			rect.x = doubles[0];
 			rect.y = doubles[1];
 			rect.w = doubles[2] - doubles[0];
 			rect.h = doubles[3] - doubles[1];
-			blContextClearRectD(&ctx, &rect);
+			bl_context_clear_rect_d(&ctx, &rect);
 			break;
 
-		case W_B2D_CMD_CLIP:
+
+		case W_BLEND2D_CMD_CLIP:
 			type = RL_GET_VALUE_RESOLVED(cmds, index, &arg[0]);
 			if (RXT_NONE == type || (RXT_LOGIC == type && !arg[0].int32a)) {
-				blContextRestoreClipping(&ctx);
+				bl_context_restore_clipping(&ctx);
 				index++;
 			}
 			else {
@@ -666,58 +772,60 @@ REBCNT b2d_draw(RXIFRM *frm, void *reb_ctx) {
 				rect.y = doubles[1];
 				rect.w = doubles[2] - doubles[0];
 				rect.h = doubles[3] - doubles[1];
-				blContextClipToRectD(&ctx, &rect);
+				bl_context_clip_to_rect_d(&ctx, &rect);
 			}
 			break;
 
-		case W_B2D_CMD_SHAPE:
+
+		case W_BLEND2D_CMD_SHAPE:
 			type = RL_GET_VALUE_RESOLVED(cmds, index++, &arg[0]);
 			if (type == RXT_HANDLE) {
-				REBHOB* hob = arg[0].handle.ptr;
-				if (hob->sym == Handle_BLPath) {
-					DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, (BLPathCore*)hob->data);
-				}
-				else goto error;
+				if (!VAL_IS_HANDLE(arg[0], Handle_BLPath)) goto error;
+				DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, (BLPathCore*)arg[0].handle.hob->data);
 			}
 			else if (type == RXT_BLOCK) {
-				b2d_init_path_from_block(&path, arg[0].series, arg[0].index);
+				b2d_init_path_from_block(&path, (REBSER*)arg[0].series, arg[0].index);
 				DRAW_GEOMETRY(ctx, BL_GEOMETRY_TYPE_PATH, &path);
-				blPathReset(&path);
+				bl_path_reset(&path);
 			}
+			else goto error;
 			break;
+
 
 		default:
 			debug_print("unknown command.. index: %u\n", index);
 			goto error;
 		} // switch end
 		continue;
+
 	error:
-		// command errors does not stop evaluation... remaining commands may be processed..
+		// A bad command does not stop the evaluation; the remaining commands
+		// may still be processed.
+		//TODO: these could be collected as warnings of the module instead of
+		//      this debug print!
 		debug_print("CMD error at index... %u\n", cmd_pos);
 		index = cmd_pos;
-		// find next valid command name
-		while (index < cmds->tail) {
-			if (fetch_word(cmds, index++, b2d_cmd_words, &cmd)) {
+		// find the next valid command name
+		while (index < SERIES_TAIL(cmds)) {
+			if (fetch_word(cmds, index++, Blend2d_cmd_words, &cmd)) {
 				goto process_cmd;
 			}
 		}
 	} // while end
 
-	goto end_ctx; // skip error setup
-//end_error:
-//	debug_print("fatal error...");
-//	//TODO: provide some useful error info!
-//	err = 1;
-
 end_ctx:
-	// END ...
-	//trace("Cleaning...");
-	blContextEnd(&ctx);
-	blImageReset(&img_target);
-	//blImageReset(&img_pattern);
-	//blPatternReset(&pattern);
-	blFontReset(&font);
-	blFontFaceReset(&font_face);
-	blContextReset(&ctx);
-	return err;
+	trace("Cleaning...");
+	bl_context_end(&ctx);
+	bl_context_reset(&ctx);
+	bl_image_reset(&img_target);
+	bl_image_reset(&img_pattern);
+	bl_image_reset(&img);
+	bl_font_reset(&font);
+	bl_font_face_reset(&font_face);
+	bl_path_reset(&path);
+
+	if (err == BL_SUCCESS) return RXR_VALUE;
+
+	debug_print("error: %u\n", err);
+	RETURN_ERROR(ERR_DRAW);
 }

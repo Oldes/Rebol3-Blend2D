@@ -6,3 +6,8 @@
 !/src
 !/test
 !/Rebol-Blend2D.nest
+!/Entitlements.plist
+!/ci-test.r3
+*/gen-*
+!/make-*.r3
+.DS_Store

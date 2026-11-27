@@ -1,44 +1,84 @@
+//   ____  __   __        ______        __
+//  / __ \/ /__/ /__ ___ /_  __/__ ____/ /
+// / /_/ / / _  / -_|_-<_ / / / -_) __/ _ \
+// \____/_/\_,_/\__/___(@)_/  \__/\__/_// /
+//  ~~~ oldes.huhuman at gmail.com ~~~ /_/
 //
-// Blend2D experimental Rebol extension
-// ====================================
-// Use on your own risc!
+// Project: Rebol/Blend2D extension
+// SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+// The `font` command and the BLFontFace handle.
+//
 
-#include "blend2d-rebol-extension.h"
+#include "gen-blend2d.h"
+#include "blend2d-command.h"
 
-void* releaseFontFace(void* font) {
-	debug_print("releasing font: %p\n", font);
-	blFontFaceDestroy((BLFontFaceCore*)font);
-	return NULL;
+static const REBYTE *ERR_NO_HANDLE = (const REBYTE*)"Blend2D failed to make a font handle!";
+static const REBYTE *ERR_BAD_FILE  = (const REBYTE*)"Blend2D failed to load the font file!";
+
+
+COMMAND cmd_blend2d_font(RXIFRM *frm, void *ctx) {
+	BLResult r;
+	BLFontFaceCore *face;
+	REBHOB *hob;
+	REBSER *file;
+
+	// Converted before the handle is made: the conversion allocates a series,
+	// and nothing references the fresh handle yet.
+	file = b2d_file_arg(&RXA_ARG(frm, 1), RXA_TYPE(frm, 1));
+	if (file == NULL) RETURN_ERROR(ERR_BAD_FILE);
+
+	hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLFontFace);
+	if (hob == NULL) RETURN_ERROR(ERR_NO_HANDLE);
+
+	face = (BLFontFaceCore*)hob->data;
+	bl_font_face_init(face);
+
+	r = bl_font_face_create_from_file(face, SERIES_TEXT(file), BL_FILE_READ_MMAP_ENABLED | BL_FILE_READ_MMAP_AVOID_SMALL);
+	if (r != BL_SUCCESS) {
+		debug_print("Failed to load font: %s, reason: %i\n", SERIES_TEXT(file), r);
+		RETURN_ERROR(ERR_BAD_FILE);
+	}
+	RETURN_HANDLE(hob);
 }
 
 
-REBCNT b2d_font(RXIFRM* frm, void* reb_ctx) {
-	BLResult ret;
-	REBSER* src;
-	BLFontFaceCore* face = NULL;
-	 
-	REBHOB* hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLFontFace);
+//== handle callbacks =========================================================
 
-	if (hob == NULL) {
-		trace("Failed to make font handle!");
-		return 1;
+int BLFontFace_free(void *data) {
+	debug_print("releasing font face: %p\n", data);
+	if (data) bl_font_face_destroy((BLFontFaceCore*)data);
+	return 0;
+}
+
+int BLFontFace_get_path(REBHOB *hob, REBCNT word, REBCNT *type, RXIARG *arg) {
+	BLFontFaceInfo info;
+	bl_font_face_get_face_info((BLFontFaceCore*)hob->data, &info);
+
+	*type = RXT_INTEGER;
+	switch (RL_FIND_WORD(Blend2d_arg_words, word)) {
+	case W_BLEND2D_ARG_GLYPHS:       arg->int64 = (i64)info.glyph_count;  break;
+	case W_BLEND2D_ARG_FACE_TYPE:    arg->int64 = (i64)info.face_type;    break;
+	case W_BLEND2D_ARG_OUTLINE_TYPE: arg->int64 = (i64)info.outline_type; break;
+	case W_BLEND2D_ARG_REVISION:     arg->int64 = (i64)info.revision;    break;
+	case W_BLEND2D_ARG_FACE_INDEX:   arg->int64 = (i64)info.face_index;   break;
+	case W_BLEND2D_ARG_FACE_FLAGS:   arg->int64 = (i64)info.face_flags;   break;
+	case W_BLEND2D_ARG_DIAG_FLAGS:   arg->int64 = (i64)info.diag_flags;   break;
+	default:
+		return PE_BAD_SELECT;
 	}
-	
-	src = RXA_SERIES(frm, 1);
-	src = RL_ENCODE_UTF8_STRING(SERIES_DATA(src), SERIES_TAIL(src), SERIES_WIDE(src) > 1, FALSE);
+	return PE_USE;
+}
 
-	face = (BLFontFaceCore*)hob->data;
-	blFontInit(face);
+int BLFontFace_mold(REBHOB *hob, REBSER *str) {
+	BLFontFaceInfo info;
+	int len = 0;
 
-	ret = blFontFaceCreateFromFile(face, SERIES_DATA(src), BL_FILE_READ_MMAP_ENABLED | BL_FILE_READ_MMAP_AVOID_SMALL);
-	if (ret != BL_SUCCESS) {
-		debug_print("Failed to load font: %s, reason: %i\n", SERIES_DATA(src), ret);
-		return ret;
-	}
-	hob->flags |= HANDLE_CONTEXT; //@@ temp fix!
-	RXA_HANDLE(frm, 1) = hob;
-	RXA_HANDLE_TYPE(frm, 1) = hob->sym;
-	RXA_HANDLE_FLAGS(frm, 1) = hob->flags;
-	RXA_TYPE(frm, 1) = RXT_HANDLE;
-	return BL_SUCCESS;
+	if (!str || !hob || !hob->data) return 0;
+	SERIES_TAIL(str) = 0;
+	bl_font_face_get_face_info((BLFontFaceCore*)hob->data, &info);
+
+	APPEND_STRING(str, "0#%lx glyphs: %i",
+		(unsigned long)(uintptr_t)hob->data, (int)info.glyph_count);
+	return len;
 }

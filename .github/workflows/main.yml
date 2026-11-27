@@ -17,117 +17,147 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
 
     - name: Install Siskin Builder
-      uses: oldes/install-siskin@v0.6.0
+      uses: oldes/install-siskin@v0.23.4
+    - name: Set Siskin locations
+      shell: bash
+      run: |
+        tee -a "$GITHUB_ENV" <<EOF
+        SISKIN_TEMP=$RUNNER_TEMP/siskin
+        SISKIN_INSTALL=$GITHUB_WORKSPACE/deps
+        REBOL_MODULES_DIR=$GITHUB_WORKSPACE
+        EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest 1
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest --debug --msvc blend2d-windows-x64
-
-    - name: Prepare 64bit Rebol Blend2d extension
-      run:  COPY .\msvc\Release-x64\blend2d-windows-x64.dll blend2d-windows-x64.rebx
-
-    - name: Install Rebol for extension test
-      uses: oldes/install-rebol@v3.8.0
-      with:
-        product: Bulk # premultiply is not part of Core in this version
+      run: ./siskin Rebol-Blend2D.nest --msvc -o ./blend2d-windows-x64.rebx blend2d-windows-x64
 
     - name: Test extension
-      run:  ./rebol3.exe test/test.r3
+      run:  ./siskin --script ci-test.r3
+    - name: Test extension examples
+      run:  ./siskin --script test/examples.r3
 
     ###############################################################################
     # Collecting build artifacts...
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v6
       with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}
-        path: ./blend2d-windows-x64.rebx
-    - uses: actions/upload-artifact@v2
-      with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}-test-results-windows-x64
-        path: ./test/test-result*
+        name: Rebol-Blend2D-CI-windows-${{github.run_id}}
+        path: ./*.rebx
 
 
-  macos:
+  macos-x64:
     runs-on: macos-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
 
     - name: Install Siskin Builder
-      uses: oldes/install-siskin@v0.6.0
+      uses: oldes/install-siskin@v0.23.4
+      with:
+        arch: aarch64
+    - name: Set Siskin locations
+      shell: bash
+      run: |
+        tee -a "$GITHUB_ENV" <<EOF
+        SISKIN_TEMP=$RUNNER_TEMP/siskin
+        SISKIN_INSTALL=$GITHUB_WORKSPACE/deps
+        REBOL_MODULES_DIR=$GITHUB_WORKSPACE
+        EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest 1
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest blend2d-macos-x64
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-macos-x64.rebx blend2d-macos-x64
 
-    - name: Prepare 64bit Rebol Blend2d extension
-      run:  mv ./build/blend2d-macos-x64.dylib blend2d-macos-x64.rebx
-
-    - name: Install Rebol for extension test
-      uses: oldes/install-rebol@v3.8.0
-      with:
-        product: Bulk # premultiply is not part of Core in this version
-
+    - name: Install Siskin Builder (Intel version)
+      uses: oldes/install-siskin@v0.23.4
     - name: Test extension
-      run:  ./rebol3 test/test.r3
-
-    - name: Compress 64bit Rebol Blend2d extension
-      run:  gzip -9 ./blend2d-macos-x64.rebx
+      run:  ./siskin --script ci-test.r3
+    - name: Test extension examples
+      run:  ./siskin --script test/examples.r3
 
     ###############################################################################
     # Collecting build artifacts...
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v6
       with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}
-        path: ./blend2d-macos-x64.rebx.gz
-    - uses: actions/upload-artifact@v2
-      with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}-test-results-macos-x64
-        path: ./test/test-result*
+        name: Rebol-Blend2D-CI-macos-${{github.run_id}}
+        path: ./*.rebx.gz
 
-  linux:
-    runs-on: ubuntu-18.04
+  macos-arm64:
+    runs-on: macos-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v6
 
     - name: Install Siskin Builder
-      uses: oldes/install-siskin@v0.6.0
+      uses: oldes/install-siskin@v0.23.4
+      with:
+        arch: aarch64
+    - name: Set Siskin locations
+      shell: bash
+      run: |
+        tee -a "$GITHUB_ENV" <<EOF
+        SISKIN_TEMP=$RUNNER_TEMP/siskin
+        SISKIN_INSTALL=$GITHUB_WORKSPACE/deps
+        REBOL_MODULES_DIR=$GITHUB_WORKSPACE
+        EOF
 
     - name: Build 64bit static Blend2d library
-      run: ./siskin Rebol-Blend2D.nest 1
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-arm64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest blend2d-linux-x64
-
-    - name: Prepare 64bit Rebol Blend2d extension
-      run:  mv ./build/blend2d-linux-x64.so blend2d-linux-x64.rebx
-
-    - name: Install Rebol for extension test
-      uses: oldes/install-rebol@v3.8.0
-      with:
-        product: Bulk # premultiply is not part of Core in this version
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-macos-arm64.rebx blend2d-macos-arm64
 
     - name: Test extension
-      run:  ./rebol3 test/test.r3
-
-    - name: Compress 64bit Rebol Blend2d extension
-      run:  gzip -9 ./blend2d-linux-x64.rebx
+      run:  ./siskin --script ci-test.r3
+    - name: Test extension examples
+      run:  ./siskin --script test/examples.r3
 
     ###############################################################################
     # Collecting build artifacts...
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v6
       with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}
-        path: ./blend2d-linux-x64.rebx.gz
-    - uses: actions/upload-artifact@v2
+        name: Rebol-Blend2D-CI-macos-${{github.run_id}}
+        path: ./*.rebx.gz
+
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Install Siskin Builder
+      uses: oldes/install-siskin@v0.23.4
+    - name: Set Siskin locations
+      shell: bash
+      run: |
+        tee -a "$GITHUB_ENV" <<EOF
+        SISKIN_TEMP=$RUNNER_TEMP/siskin
+        SISKIN_INSTALL=$GITHUB_WORKSPACE/deps
+        REBOL_MODULES_DIR=$GITHUB_WORKSPACE
+        EOF
+
+    - name: Build 64bit static Blend2d library
+      run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
+
+    - name: Build 64bit Rebol Blend2d extension
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-linux-x64.rebx blend2d-linux-x64
+
+    - name: Test extension
+      run:  ./siskin --script ci-test.r3
+    - name: Test extension examples
+      run:  ./siskin --script test/examples.r3
+
+    ###############################################################################
+    # Collecting build artifacts...
+    - uses: actions/upload-artifact@v6
       with:
-        name: Rebol-Blend2D-CI-${{github.run_id}}-test-results-linux-x64
-        path: ./test/test-result*
+        name: Rebol-Blend2D-CI-linux-${{github.run_id}}
+        path: ./*.rebx.gz
  

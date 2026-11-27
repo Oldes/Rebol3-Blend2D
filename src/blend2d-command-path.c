@@ -1,142 +1,210 @@
+//   ____  __   __        ______        __
+//  / __ \/ /__/ /__ ___ /_  __/__ ____/ /
+// / /_/ / / _  / -_|_-<_ / / / -_) __/ _ \
+// \____/_/\_,_/\__/___(@)_/  \__/\__/_// /
+//  ~~~ oldes.huhuman at gmail.com ~~~ /_/
 //
-// Blend2D experimental Rebol extension
-// ====================================
-// Use on your own risc!
+// Project: Rebol/Blend2D extension
+// SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+// The `path` command, the path dialect and the BLPath handle.
+//
 
-#include "blend2d-rebol-extension.h"
+#include "gen-blend2d.h"
+#include "blend2d-command.h"
+#include "blend2d-spline.h"
 
-void* releasePath(void* path) {
-	//debug_print("releasing path: %p\n", path);
-	blPathDestroy(path);
-	return NULL;
-}
+REBOOL b2d_spline_command(BLPathCore *path, REBSER *cmds, REBCNT *index_io);
 
-REBCNT b2d_init_path_from_block(BLPathCore* path, REBSER* cmds, REBCNT index) {
-	REBCNT cmd, type, cap, mode, count, i;
-	REBCNT cmd_pos = 0;
+static const REBYTE *ERR_NO_HANDLE = (const REBYTE*)"Blend2D failed to make a path handle!";
+
+
+// Evaluates the path dialect of `cmds` (starting at `index`) into `path`.
+// Returns 0 when everything was understood, 1 when at least one command was
+// skipped - evaluation itself never stops on a bad command, it resumes at the
+// next word which names one.
+REBCNT b2d_init_path_from_block(BLPathCore *path, REBSER *cmds, REBCNT index) {
+	REBCNT cmd = 0, type, cmd_pos = 0;
+	REBOOL sweepFlag, largeFlag;
 	BLPoint pos;
+	REBDEC doubles[DOUBLE_BUFFER_SIZE];
+	RXIARG arg[ARG_BUFFER_SIZE];
 
-	while (index < cmds->tail) {
-		if (!fetch_word(cmds, index++, b2d_cmd_words, &cmd)) {
+	while (index < SERIES_TAIL(cmds)) {
+		if (!fetch_word(cmds, index++, Blend2d_cmd_words, &cmd)) {
 			trace("expected word as a command!");
 			goto error;
 		}
-	process_cmd: // label is used from error loop which skip all args until it reaches valid command
+	process_cmd: // reached from the error loop, which skips values until it finds a command
 
-		cmd_pos = index; // this could be used to report error position
-		//debug_print("cmd index: %u\n", index);
+		cmd_pos = index; // used to report the error position
+		debug_print("path cmd index: %u cmd: %u\n", index, cmd);
 		switch (cmd) {
-		case W_B2D_CMD_MOVE:
+
+		case W_BLEND2D_CMD_MOVE:
 			RESOLVE_PAIR_ARG(0, 0);
-			blPathMoveTo(path, doubles[0], doubles[1]);
+			bl_path_move_to(path, doubles[0], doubles[1]);
 			break;
-		case W_B2D_CMD_LINE:
+
+		case W_BLEND2D_CMD_LINE:
 			RESOLVE_PAIR_ARG(0, 0);
-			blPathLineTo(path, doubles[0], doubles[1]);
+			bl_path_line_to(path, doubles[0], doubles[1]);
 			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0])) {
 				index++;
-				blPathLineTo(path, (double)arg[0].pair.x, (double)arg[0].pair.y);
+				bl_path_line_to(path, (double)arg[0].pair.x, (double)arg[0].pair.y);
 			}
 			break;
-		case W_B2D_CMD_ARC:
+
+		case W_BLEND2D_CMD_ARC:
 			RESOLVE_PAIR_ARG(0, 3);   // arc's end point
 			RESOLVE_NUMBER_ARG(1, 0); // radius of the circle along x axis
 			RESOLVE_NUMBER_ARG(2, 1); // radius of the circle along y axis
 			RESOLVE_NUMBER_ARG(3, 2); // rotation angle of the underlying ellipse in degrees
 
 			TO_RADIANS(doubles[2]);
-			REBOOL sweepFlag = FALSE;
-			REBOOL largeFlag = FALSE;
+			sweepFlag = FALSE;
+			largeFlag = FALSE;
 
-			OPT_WORD_FLAG(sweepFlag, W_B2D_ARG_SWEEP);
-			OPT_WORD_FLAG(largeFlag, W_B2D_ARG_LARGE);
+			OPT_WORD_FLAG(sweepFlag, W_BLEND2D_ARG_SWEEP);
+			OPT_WORD_FLAG(largeFlag, W_BLEND2D_ARG_LARGE);
 
-			blPathEllipticArcTo(path, doubles[0], doubles[1], doubles[2], largeFlag, sweepFlag, doubles[3], doubles[4]);
+			bl_path_elliptic_arc_to(path, doubles[0], doubles[1], doubles[2], largeFlag, sweepFlag, doubles[3], doubles[4]);
 			break;
-		case W_B2D_CMD_CURVE:
-			// A cubic Bézier curve is defined by a start point, an end point, and two control points.
+
+		case W_BLEND2D_CMD_CURVE:
+			// A cubic Bezier curve is defined by a start point, an end point
+			// and two control points.
 			while (
 				RXT_PAIR == RL_GET_VALUE(cmds, index,     &arg[0]) &&
 				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1]) &&
 				RXT_PAIR == RL_GET_VALUE(cmds, index + 2, &arg[2])
 			) {
 				index += 3;
-				blPathCubicTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1), ARG_X(2), ARG_Y(2));
+				bl_path_cubic_to(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1), ARG_X(2), ARG_Y(2));
 			}
 			break;
-		case W_B2D_CMD_CURV:
+
+		case W_BLEND2D_CMD_SPLINE:
+			// continues from the current vertex when the path has one
+			if (!b2d_spline_command(path, cmds, &index)) goto error;
+			break;
+
+		case W_BLEND2D_CMD_CURV:
 			while (
-				RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index,     &arg[0]) &&
 				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1])
 			) {
 				index += 2;
-				blPathSmoothCubicTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
+				bl_path_smooth_cubic_to(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
 			}
 			break;
-		case W_B2D_CMD_QCURVE:
-			// A quadratic Bézier curve is defined by a start point, an end point, and one control point.
+
+		case W_BLEND2D_CMD_QCURVE:
+			// A quadratic Bezier curve is defined by a start point, an end
+			// point and one control point.
 			while (
-				RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0]) &&
+				RXT_PAIR == RL_GET_VALUE(cmds, index,     &arg[0]) &&
 				RXT_PAIR == RL_GET_VALUE(cmds, index + 1, &arg[1])
 			) {
 				index += 2;
-				blPathQuadTo(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
+				bl_path_quad_to(path, ARG_X(0), ARG_Y(0), ARG_X(1), ARG_Y(1));
 			}
 			break;
-		case W_B2D_CMD_QCURV:
+
+		case W_BLEND2D_CMD_QCURV:
 			while (RXT_PAIR == RL_GET_VALUE(cmds, index, &arg[0])) {
 				index += 1;
-				blPathSmoothQuadTo(path, ARG_X(0), ARG_Y(0));
+				bl_path_smooth_quad_to(path, ARG_X(0), ARG_Y(0));
 			}
 			break;
-		case W_B2D_CMD_HLINE:
+
+		case W_BLEND2D_CMD_HLINE:
 			RESOLVE_NUMBER_ARG(0, 0);
-			blPathGetLastVertex(path, &pos);
-			blPathLineTo(path, doubles[0], pos.y);
+			bl_path_get_last_vertex(path, &pos);
+			bl_path_line_to(path, doubles[0], pos.y);
 			break;
-		case W_B2D_CMD_VLINE:
+
+		case W_BLEND2D_CMD_VLINE:
 			RESOLVE_NUMBER_ARG(0, 0);
-			blPathGetLastVertex(path, &pos);
-			blPathLineTo(path, pos.x, doubles[0]);
+			bl_path_get_last_vertex(path, &pos);
+			bl_path_line_to(path, pos.x, doubles[0]);
 			break;
-		case W_B2D_CMD_CLOSE:
-			blPathClose(path);
+
+		case W_BLEND2D_CMD_CLOSE:
+			bl_path_close(path);
 			break;
+
 		default:
-			debug_print("unknown command.. index: %u\n", index);
+			debug_print("unknown path command.. index: %u\n", index);
 			goto error;
 		} // switch end
 		continue;
+
 	error:
-		// command errors does not stop evaluation... remaining commands may be processed..
-		debug_print("CMD error at index... %u\n", cmd_pos);
+		// A bad command does not stop the evaluation; the remaining ones may
+		// still be processed.
+		debug_print("path command error at index... %u\n", cmd_pos);
 		index = cmd_pos;
-		// find next valid command name
-		while (index < cmds->tail) {
-			if (fetch_word(cmds, index++, b2d_cmd_words, &cmd)) {
+		while (index < SERIES_TAIL(cmds)) {
+			if (fetch_word(cmds, index++, Blend2d_cmd_words, &cmd)) {
 				goto process_cmd;
 			}
 		}
+		return 1;
 	} // while end
+	return 0;
 }
 
-REBCNT b2d_path(RXIFRM* frm, void* reb_ctx) {
-	debug_print("pathHandleId: %u\n", Handle_BLPath);
-	REBHOB* hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLPath);
-	if (hob == NULL) {
-		trace("Failed to make path handle!");
-		return 1;
-	}
-	BLPathCore* path = (BLPathCore*)hob->data;
-	debug_print("New path handle: %u data: %p\n", hob->sym, hob->data);
-	blPathInit(path);
+
+COMMAND cmd_blend2d_path(RXIFRM *frm, void *ctx) {
+	BLPathCore *path;
+	REBHOB *hob = RL_MAKE_HANDLE_CONTEXT(Handle_BLPath);
+
+	if (hob == NULL) RETURN_ERROR(ERR_NO_HANDLE);
+
+	path = (BLPathCore*)hob->data;
+	debug_print("New path handle: %u data: %p\n", hob->sym, (void*)hob->data);
+	bl_path_init(path);
 
 	b2d_init_path_from_block(path, RXA_SERIES(frm, 1), RXA_INDEX(frm, 1));
 
-	hob->flags |= HANDLE_CONTEXT; //@@ temp fix!
-	RXA_HANDLE(frm, 1) = hob;
-	RXA_HANDLE_TYPE(frm, 1) = hob->sym;
-	RXA_HANDLE_FLAGS(frm, 1) = hob->flags;
-	RXA_TYPE(frm, 1) = RXT_HANDLE;
+	RETURN_HANDLE(hob);
+}
+
+
+//== handle callbacks =========================================================
+
+int BLPath_free(void *data) {
+	debug_print("releasing path: %p\n", data);
+	if (data) bl_path_destroy((BLPathCore*)data);
 	return 0;
+}
+
+int BLPath_get_path(REBHOB *hob, REBCNT word, REBCNT *type, RXIARG *arg) {
+	BLPathCore *path = (BLPathCore*)hob->data;
+
+	switch (RL_FIND_WORD(Blend2d_arg_words, word)) {
+	case W_BLEND2D_ARG_SIZE:
+		*type = RXT_INTEGER;
+		arg->int64 = (i64)bl_path_get_size(path);
+		break;
+	case W_BLEND2D_ARG_CAPACITY:
+		*type = RXT_INTEGER;
+		arg->int64 = (i64)bl_path_get_capacity(path);
+		break;
+	default:
+		return PE_BAD_SELECT;
+	}
+	return PE_USE;
+}
+
+int BLPath_mold(REBHOB *hob, REBSER *str) {
+	int len = 0;
+
+	if (!str || !hob || !hob->data) return 0;
+	SERIES_TAIL(str) = 0;
+	APPEND_STRING(str, "0#%lx size: %i",
+		(unsigned long)(uintptr_t)hob->data,
+		(int)bl_path_get_size((BLPathCore*)hob->data));
+	return len;
 }

@@ -1,12 +1,23 @@
+//   ____  __   __        ______        __
+//  / __ \/ /__/ /__ ___ /_  __/__ ____/ /
+// / /_/ / / _  / -_|_-<_ / / / -_) __/ _ \
+// \____/_/\_,_/\__/___(@)_/  \__/\__/_// /
+//  ~~~ oldes.huhuman at gmail.com ~~~ /_/
 //
-// Blend2D experimental Rebol extension
-// ====================================
-// Use on your own risc!
+// Project: Rebol/Blend2D extension
+// SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+// The `info` command - reports the library's runtime state, or the content of
+// one of the extension's handles.
+//
 
-#include "blend2d-rebol-extension.h"
-#include <inttypes.h>
+#include "gen-blend2d.h"
+#include "blend2d-command.h"
 
-const char* RuntimeCpuArchString(u32 val) {
+static const REBYTE *ERR_NO_STRING     = (const REBYTE*)"Blend2D failed to make the result string!";
+static const REBYTE *ERR_BAD_HANDLE    = (const REBYTE*)"Not a Blend2D handle!";
+
+static const char* RuntimeCpuArchString(uint32_t val) {
 	switch (val) {
 	case BL_RUNTIME_CPU_ARCH_X86:  return "x86";
 	case BL_RUNTIME_CPU_ARCH_ARM:  return "ARM";
@@ -15,20 +26,25 @@ const char* RuntimeCpuArchString(u32 val) {
 	}
 }
 
-void b2d_info(RXIFRM* frm, void* reb_ctx) {
-	// return library info...
-	REBI64 tail = 0;
-	REBSER* str = RL_MAKE_STRING(1000, FALSE); // 1024 bytes, latin1 (must be large enough!)
+COMMAND cmd_blend2d_info(RXIFRM *frm, void *ctx) {
+	REBSER *str;
+	int len = 0;
 
-	if (RXT_HANDLE == RXA_TYPE(frm, 2)) {
-		REBHOB* hob = RXA_HANDLE(frm, 2);
+	// The result string grows on demand; 512 bytes is enough for a handle and
+	// close enough for the runtime report.
+	str = RL_MAKE_STRING(512, FALSE);
+	if (str == NULL) RETURN_ERROR(ERR_NO_STRING);
+	SERIES_TAIL(str) = 0;
+
+	if (RXA_REF(frm, 1) && RXT_HANDLE == RXA_TYPE(frm, 2)) {
+		REBHOB *hob = RXA_HANDLE_CONTEXT(frm, 2);
+
+		if (hob == NULL || !IS_USED_HOB(hob)) RETURN_ERROR(ERR_BAD_HANDLE);
 
 		if (hob->sym == Handle_BLFontFace) {
-			BLFontFaceInfo fontFaceInfo;
-			blFontFaceGetFaceInfo((BLFontFaceCore*)hob->data, &fontFaceInfo);
-			tail = snprintf(
-				SERIES_DATA(str),
-				SERIES_REST(str),
+			BLFontFaceInfo info;
+			bl_font_face_get_face_info((BLFontFaceCore*)hob->data, &info);
+			APPEND_STRING(str,
 				"faceType:    %u\n"
 				"outlineType: %u\n"
 				"glyphCount:  %u\n"
@@ -36,43 +52,44 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 				"faceIndex:   %u\n"
 				"faceFlags:   %u\n"
 				"diagFlags:   %u\n",
-				fontFaceInfo.faceType,
-				fontFaceInfo.outlineType,
-				fontFaceInfo.glyphCount,
-				fontFaceInfo.revision,
-				fontFaceInfo.faceIndex,
-				fontFaceInfo.faceFlags,
-				fontFaceInfo.diagFlags
+				(unsigned)info.face_type,
+				(unsigned)info.outline_type,
+				(unsigned)info.glyph_count,
+				(unsigned)info.revision,
+				(unsigned)info.face_index,
+				(unsigned)info.face_flags,
+				(unsigned)info.diag_flags
 			);
 		}
 		else if (hob->sym == Handle_BLPath) {
-			BLPathCore* path = (BLPathCore*)hob->data;
-			tail = snprintf(
-				SERIES_DATA(str),
-				SERIES_REST(str),
-				"size:     %" PRIu64 "\n"
-				"capacity: %" PRIu64 "\n",
-				blPathGetSize(path),
-				blPathGetCapacity(path)
+			BLPathCore *path = (BLPathCore*)hob->data;
+			APPEND_STRING(str,
+				"size:     %llu\n"
+				"capacity: %llu\n",
+				(unsigned long long)bl_path_get_size(path),
+				(unsigned long long)bl_path_get_capacity(path)
 			);
 		}
-		if (hob->sym == Handle_BLImage) {
-			BLImageData imgData;
-			blImageGetData((BLImageCore*)hob->data, &imgData);
-			tail = snprintf(
-				SERIES_DATA(str),
-				SERIES_REST(str),
+		else if (hob->sym == Handle_BLImage) {
+			BLImageData data;
+			if (bl_image_get_data((BLImageCore*)hob->data, &data) != BL_SUCCESS) {
+				RETURN_ERROR(ERR_BAD_HANDLE);
+			}
+			APPEND_STRING(str,
 				"width:  %i\n"
-				"heigth: %i\n"
-				"stride: %" PRIu64 "\n"
+				"height: %i\n"
+				"stride: %lli\n"
 				"format: %u\n"
 				"flags:  %u\n",
-				imgData.size.w,
-				imgData.size.h,
-				imgData.stride,
-				imgData.format,
-				imgData.flags
+				(int)data.size.w,
+				(int)data.size.h,
+				(long long)data.stride,
+				(unsigned)data.format,
+				(unsigned)data.flags
 			);
+		}
+		else {
+			RETURN_ERROR(ERR_BAD_HANDLE);
 		}
 	}
 	else {
@@ -80,67 +97,62 @@ void b2d_info(RXIFRM* frm, void* reb_ctx) {
 		BLRuntimeResourceInfo resourceInfo;
 		BLRuntimeSystemInfo systemInfo;
 
-		blRuntimeQueryInfo(BL_RUNTIME_INFO_TYPE_BUILD, &buildInfo);
-		blRuntimeQueryInfo(BL_RUNTIME_INFO_TYPE_SYSTEM, &systemInfo);
-		blRuntimeQueryInfo(BL_RUNTIME_INFO_TYPE_RESOURCE, &resourceInfo);
+		bl_runtime_query_info(BL_RUNTIME_INFO_TYPE_BUILD, &buildInfo);
+		bl_runtime_query_info(BL_RUNTIME_INFO_TYPE_SYSTEM, &systemInfo);
+		bl_runtime_query_info(BL_RUNTIME_INFO_TYPE_RESOURCE, &resourceInfo);
 
-		tail = snprintf(
-			SERIES_DATA(str),
-			SERIES_REST(str),
+		APPEND_STRING(str,
 			"Version:     %u.%u.%u\n"
 			"Build-type:  %s\n"
-			"Compiled-by: %s\n\n"
-
+			"Compiled-by: %s\n"
+			"Threads:     %u\n\n",
+			(unsigned)buildInfo.major_version, (unsigned)buildInfo.minor_version, (unsigned)buildInfo.patch_version,
+			buildInfo.build_type == BL_RUNTIME_BUILD_TYPE_DEBUG ? "Debug" : "Release",
+			buildInfo.compiler_info,
+			(unsigned)Blend2D_thread_count
+		);
+		APPEND_STRING(str,
 			"System: [\n"
-			"  cpuArch:      %s\n" //! Host CPU architecture, see `BLRuntimeCpuArch`.
-			"  cpuFeatures:  %u\n" //! Host CPU features, see `BLRuntimeCpuFeatures`.
-			"  coreCount:    %u\n" //! Number of cores of the host CPU/CPUs.
-			"  threadCount:  %u\n" //! Number of threads of the host CPU/CPUs.
+			"  cpuArch:      %s\n"      //! Host CPU architecture, see `BLRuntimeCpuArch`.
+			"  cpuFeatures:  %u\n"      //! Host CPU features, see `BLRuntimeCpuFeatures`.
+			"  coreCount:    %u\n"      //! Number of cores of the host CPU/CPUs.
+			"  threadCount:  %u\n"      //! Number of threads of the host CPU/CPUs.
 			"  threadStackSize:       %u\n" //! Minimum stack size of a worker thread used by Blend2D.
 			"  allocationGranularity: %u\n" //! Allocation granularity of virtual memory (includes thread's stack).
-			"]\n\n"
-
+			"]\n\n",
+			RuntimeCpuArchString(systemInfo.cpu_arch),
+			(unsigned)systemInfo.cpu_features,
+			(unsigned)systemInfo.core_count,
+			(unsigned)systemInfo.thread_count,
+			(unsigned)systemInfo.thread_stack_size,
+			(unsigned)systemInfo.allocation_granularity
+		);
+		APPEND_STRING(str,
 			"Resource: [\n"
-			"  vmUsed:       %zu\n"
-			"  vmReserved:   %zu\n"
-			"  vmOverhead:   %zu\n"
-			"  vmBlockCount: %zu\n"
-			"  zmUsed:       %zu\n"
-			"  zmReserved:   %zu\n"
-			"  zmOverhead:   %zu\n"
-			"  zmBlockCount: %zu\n"
-			"  dynamicPipelineCount: %zu\n"
+			"  vmUsed:       %llu\n"
+			"  vmReserved:   %llu\n"
+			"  vmOverhead:   %llu\n"
+			"  vmBlockCount: %llu\n"
+			"  zmUsed:       %llu\n"
+			"  zmReserved:   %llu\n"
+			"  zmOverhead:   %llu\n"
+			"  zmBlockCount: %llu\n"
+			"  dynamicPipelineCount: %llu\n"
 			"]\n",
-
-			buildInfo.majorVersion, buildInfo.minorVersion, buildInfo.patchVersion,
-			buildInfo.buildType == BL_RUNTIME_BUILD_TYPE_DEBUG ? "Debug" : "Release",
-			buildInfo.compilerInfo,
-
-			RuntimeCpuArchString(systemInfo.cpuArch),
-			systemInfo.cpuFeatures,
-			systemInfo.coreCount,
-			systemInfo.threadCount,
-			systemInfo.threadStackSize,
-			systemInfo.allocationGranularity,
-
-			resourceInfo.vmUsed,
-			resourceInfo.vmReserved,
-			resourceInfo.vmOverhead,
-			resourceInfo.vmBlockCount,
-			resourceInfo.zmUsed,
-			resourceInfo.zmReserved,
-			resourceInfo.zmOverhead,
-			resourceInfo.zmBlockCount,
-			resourceInfo.dynamicPipelineCount
+			(unsigned long long)resourceInfo.vm_used,
+			(unsigned long long)resourceInfo.vm_reserved,
+			(unsigned long long)resourceInfo.vm_overhead,
+			(unsigned long long)resourceInfo.vm_block_count,
+			(unsigned long long)resourceInfo.zm_used,
+			(unsigned long long)resourceInfo.zm_reserved,
+			(unsigned long long)resourceInfo.zm_overhead,
+			(unsigned long long)resourceInfo.zm_block_count,
+			(unsigned long long)resourceInfo.dynamic_pipeline_count
 		);
 	}
-	if (tail < 0) {
-		RXA_TYPE(frm, 1) = RXT_NONE;
-	}
-	else {
-		SERIES_TAIL(str) = tail;
-		RXA_SERIES(frm, 1) = str;
-		RXA_TYPE(frm, 1) = RXT_STRING;
-		RXA_INDEX(frm, 1) = 0;
-	}
+
+	RXA_SERIES(frm, 1) = str;
+	RXA_INDEX(frm, 1) = 0;
+	RXA_TYPE(frm, 1) = RXT_STRING;
+	return RXR_VALUE;
 }

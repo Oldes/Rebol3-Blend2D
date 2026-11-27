@@ -1,10 +1,41 @@
 Rebol [
 	title: "Basic Blend2D extension usage examples"
 ]
+
+if CI?: any [
+	"true" = get-env "CI"
+	"true" = get-env "GITHUB_ACTIONS"
+	"true" = get-env "TRAVIS"
+	"true" = get-env "CIRCLECI"
+	"true" = get-env "GITLAB_CI"
+][
+	;; configure modules location for the CI test
+	system/options/modules: dirize to-rebol-file any [
+		get-env 'REBOL_MODULES_DIR
+		system/options/modules
+	]
+]
+
+system/modules/blend2d: none ;; make sure that we use the local one 
+b2d: import 'blend2d
+
+print b2d/info
+
+b2d/set-threads 2 ;; use asynchronous rendering
 ;about
-CI?: "true" = get-env "CI" 
+
 ;recycle/torture
-unless value? 'b2d [ b2d: import rejoin [%../blend2d- system/build/os #"-" system/build/arch %.rebx] ]
+
+;; Some used colors may not be defined.
+unless tuple? :gray [
+	gray:   128.128.128
+	red:    255.0.0
+	orange: 255.150.10
+	blue:   0.0.255
+	black:  0.0.0
+	purple: 128.0.128
+	olive:  128.128.0
+]
 
 ;- assets start
 texture: b2d/image %assets/texture.jpeg
@@ -15,8 +46,24 @@ text: "The quick brown fox jumps over the lazy dog. 123456780"
 
 grid10x10: draw 20x20 [fill 215.215.215 box 0x0 10x10 box 10x10 20x20]
 center:  240x240
-points:  #[f64! [100 100  100 380  380 380  380 100]]
+points:  #(f64! [100 100  100 380  380 380  380 100])
 points2: skip points 2
+points-in-block: [
+	0x200 2x198.056 4x196.544 6x195.464 8x194.816 10x194.6 12x194.816 14x195.464 16x196.544 18x198.056
+	20x200 22x196.073 24x192.628 26x189.667 28x187.188 30x185.191 32x183.677 34x182.646 36x182.098 38x182.032
+	40x182.449 42x183.348 44x184.73 46x186.595 48x188.943 50x191.773 52x195.086 54x198.881 56x195.296 58x189.142
+	60x183.35 62x177.922 64x172.856 66x168.154 68x163.814 70x159.838 72x156.224 74x152.974 76x150.086 78x147.562
+	80x145.4 82x143.602 84x142.166 86x141.094 88x140.384 90x140.038 92x140.054 94x140.434 96x141.176 98x142.282
+	100x143.75 102x145.582 104x147.776 106x150.334 108x153.254 110x156.538 112x160.184 114x164.194 116x168.566 118x173.302
+	120x178.4 122x183.862 124x189.686 126x195.874 128x196.02 130x185.281 132x174.845 134x164.711 136x154.88 138x145.351
+	140x136.125 142x127.201 144x118.58 146x110.261 148x102.245 150x94.531 152x87.12 154x80.011 156x73.205 158x66.701
+	160x60.5 162x54.601 164x49.005 166x43.711 168x38.72 170x34.031 172x29.645 174x25.561 176x21.78 178x18.301
+	180x15.125 182x12.251 184x9.68 186x7.411 188x5.445 190x3.781 192x2.42 194x1.361 196x0.605 198x0.151
+	200x0
+]
+;; knots of the `spline` examples - the chords, the curve and the dots are
+;; all drawn from these very same numbers
+spline-knots: [40x400 140x180 240x300 340x100 440x240]
 ;- assets end
 
 examples: [
@@ -50,8 +97,12 @@ examples: [
 	]
 
 	%fill-conical [
-		fill conical 255.255.255 0 95.175.223 0.5 255.255.255 1 240x240 0x240
+		fill conical 255.255.255 0 95.175.223 0.5 255.255.255 1 240x240
 		fill-all
+		fill conical 255.255.255 0 95.175.223 0.5 255.255.255 1 240x240 3.14 ;; rotated
+		circle 240x240 200
+		fill conical 255.255.255 0 95.175.223 0.5 255.255.255 1 240x240 0 12 ;; repeated
+		circle 240x240 100
 	]
 
 	%clear [
@@ -353,6 +404,21 @@ examples: [
 		point 230x360 240x360 250x360 240x370 ; multiple points
 	]
 
+	%graph [
+		translate 15x20
+		scale 2
+		;; axis
+		line-width 1 pen
+		line 0x0 0x200 210x200  ;; axis
+		;; graph
+		line-width 0.5 pen red
+		line  :points-in-block
+		fill blue
+		point-size 3
+		point :points-in-block
+	]
+
+
 	%triangle [
 		line-width 4
 		; single triangle
@@ -384,6 +450,27 @@ examples: [
 		cubic 10x470 100x10 380x470 470x10 
 		pen 60.60.200 line-width 4.0
 		cubic 470x10 10x100 470x380 10x470
+	]
+
+	%spline [
+		;; unlike `cubic`, whose points steer the curve from outside, a
+		;; spline is interpolating - it passes through every knot
+		pen 0.0.0.100 line-width 1
+		line :spline-knots  ;; the chords between the knots
+		pen 200.60.60 line-width 6 line-cap 2
+		spline :spline-knots  ;; the curve through them
+		pen off fill 0.0.200.200
+		point-size 16
+		point :spline-knots  ;; and the knots themselves
+	]
+
+	%spline-closed [
+		;; the same four knots as a polygon and as a closed spline
+		line-width 4
+		pen 200.60.60 fill 200.200.200.100
+		polygon 240x60 400x240 240x420 80x240
+		pen 60.60.200 fill off
+		spline 240x60 400x240 240x420 80x240 closed
 	]
 
 	%shape-1 [
@@ -612,10 +699,12 @@ parse raw-src [
 	)
 ]
 
+total-time: 0:0:0
+
 foreach [file code] examples [
 	out: rejoin [%assets/gen/ file %.png]
 	print [as-red "Drawing example:" as-green mold out]
-	try/except [
+	try/with [
 		code-init: none
 		if parse raw-src compose/deep [
 			thru (join mold file " [") copy code-draw to "^/^-]"
@@ -638,7 +727,7 @@ foreach [file code] examples [
 			]
 		]
 
-		img: draw 480x480 code
+		total-time: total-time + delta-time [img: draw 480x480 code]
 		save out img
 
 		append page rejoin [
@@ -646,6 +735,8 @@ foreach [file code] examples [
 		]
 	][ print system/state/last-error ]
 ]
+
+print ["Time:" total-time]
 
 append page {
 * * * *
