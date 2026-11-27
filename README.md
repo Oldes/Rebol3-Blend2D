@@ -1,6 +1,6 @@
-[![rebol-blend2d](https://github.com/user-attachments/assets/7ad6b294-8bcb-4e2e-ab45-d34003c4cff0)](https://github.com/Siskin-framework/Rebol-Blend2D)
+[![rebol-blend2d](https://github.com/user-attachments/assets/7ad6b294-8bcb-4e2e-ab45-d34003c4cff0)](https://github.com/Oldes/Rebol3-Blend2D)
 
-[![Rebol-Blend2D CI](https://github.com/Siskin-framework/Rebol-Blend2D/actions/workflows/main.yml/badge.svg)](https://github.com/Siskin-framework/Rebol-Blend2D/actions/workflows/main.yml)
+[![Rebol-Blend2D CI](https://github.com/Oldes/Rebol3-Blend2D/actions/workflows/main.yml/badge.svg)](https://github.com/Oldes/Rebol3-Blend2D/actions/workflows/main.yml)
 [![Gitter](https://badges.gitter.im/rebol3/community.svg)](https://app.gitter.im/#/room/#Rebol3:gitter.im)
 [![Zulip](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://rebol.zulipchat.com/)
 
