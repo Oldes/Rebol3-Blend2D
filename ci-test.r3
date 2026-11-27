@@ -762,4 +762,72 @@ either quick? [
 	]
 ]
 
+
+;;=============================================================================
+group "Image codecs"
+;;=============================================================================
+
+sample: draw 4x4 [clear-all fill 255.0.0 box 0x0 2x2 fill 0.255.0 box 2x2 4x4]
+
+--test-- "codecs lists the four formats" [
+	did all [block? c: b2d/codecs  4 = length? c  find c 'png  find c 'qoi]
+]
+
+--test-- "PNG encode makes a PNG"  [#{89504E470D0A1A0A} = copy/part b2d/encode 'png sample 8]
+--test-- "BMP encode makes a BMP"  [#{424D} = copy/part b2d/encode 'bmp sample 2]
+--test-- "QOI encode makes a QOI"  [#{716F6966} = copy/part b2d/encode 'qoi sample 4]
+
+;; An opaque image is handed to the encoders as XRGB32, so nothing is
+;; premultiplied and the round trip is exact.
+--test-- "an opaque image survives a PNG round trip" [sample == b2d/decode b2d/encode 'png sample]
+--test-- "an opaque image survives a QOI round trip" [sample == b2d/decode b2d/encode 'qoi sample]
+--test-- "an opaque image survives a BMP round trip" [sample == b2d/decode b2d/encode 'bmp sample]
+
+;; NOTE: `(expr)/size` is not a path - a paren at the head of one is evaluated
+;; on its own and the rest stays a refinement, so the result has to be named.
+--test-- "decode recognizes the format from the data" [
+	a: b2d/decode b2d/encode 'png sample
+	b: b2d/decode b2d/encode 'qoi sample
+	all [4x4 = a/size  4x4 = b/size]
+]
+--test-- "the decoded image starts at its head" [
+	a: b2d/decode b2d/encode 'png sample
+	all [1 = index? a  16 = length? a]
+]
+
+;; Blend2D 0.21.3 advertises BL_IMAGE_CODEC_FEATURE_WRITE for JPEG, but its
+;; create_encoder returns BL_ERROR_IMAGE_ENCODER_NOT_PROVIDED.
+--rejects-- "encoding a JPEG"          [b2d/encode 'jpeg sample]
+--rejects-- "an unknown format word"   [b2d/encode 'webp sample]
+--rejects-- "decoding a foreign binary"[b2d/decode #{DEADBEEF}]
+--rejects-- "decoding an empty binary" [b2d/decode #{}]
+
+;; The module registers only the formats the host did not already have, so the
+;; codec of a given name may be the interpreter's own - what matters is that
+;; the format is known at all.
+--test-- "the formats are in system/codecs" [
+	all [object? select system/codecs 'png  object? select system/codecs 'qoi]
+]
+--test-- "ENCODING? recognizes an encoded image" [
+	'png = encoding? b2d/encode 'png sample
+]
+--test-- "the suffixes are in the file types catalog" [
+	did all [find system/catalog/file-types %.png  find system/catalog/file-types %.qoi]
+]
+
+;; Every encode hands DO-CODEC a buffer allocated with RL_ALLOC, which the
+;; interpreter frees with Free_Mem; a mismatch shows up here (on a DEBUG build
+;; as the accounting assertion in Dispose_Core).
+either quick? [
+	--skip-- "200 round trips with a recycle between them (--quick)"
+][
+	--test-- "200 round trips with a recycle between them" [
+		loop 200 [
+			img: decode 'qoi encode 'qoi sample
+			recycle
+		]
+		img == sample
+	]
+]
+
 summary

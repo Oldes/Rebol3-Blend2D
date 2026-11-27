@@ -101,6 +101,7 @@ r3-extension: [
 	files: only [
 		%src/blend2d.c
 		%src/gen-blend2d.c
+		%src/blend2d-codec.c
 		%src/blend2d-command.c
 		%src/blend2d-command-draw.c
 		%src/blend2d-command-path.c

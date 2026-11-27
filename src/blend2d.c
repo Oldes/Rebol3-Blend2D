@@ -82,6 +82,8 @@ int Blend2d_Init(void) {
 	spec.mold     = BLFontFace_mold;
 	Handle_BLFontFace = RL_REGISTER_HANDLE_SPEC(cb_cast("BLFontFace"), &spec);
 
+	// the handle type DO-CODEC accepts; the variable lives in blend2d-codec.c
+	Blend2d_codec_word = RL_MAP_WORD((REBYTE*)"codec");
 	return TRUE;
 }
 

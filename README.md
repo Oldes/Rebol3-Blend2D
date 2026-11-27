@@ -36,6 +36,56 @@ Not all commands are implemented... it was more considered as a proof of concept
 
 **For some code examples, visit [test/README.md](test/README.md).**
 
+## Image codecs
+
+Blend2D carries its own PNG, JPEG, BMP and QOI codecs. Importing the module registers them
+in `system/codecs`, so they are used by `LOAD`, `SAVE`, `DECODE`, `ENCODE` and `ENCODING?`
+like any internal codec:
+
+```rebol
+import 'blend2d
+
+save %photo.qoi img
+img: load %photo.png
+encoding? bin                  ;; == png
+```
+
+A format which `system/codecs` already has is left alone - importing the extension for `draw`
+never replaces a codec the interpreter came with. A *Rebol/Core* build, which has no image
+codecs of its own, gets all four.
+
+To use Blend2D's codec instead of the interpreter's own, remove the existing one *before*
+importing the module:
+
+```rebol
+unset in system/codecs 'png    ;; or: attempt [system/codecs/png: none]
+import 'blend2d
+```
+
+Either form leaves the word in `system/codecs`, which is why the registration asks whether the
+slot still holds a codec object rather than whether the word is there.
+
+The codecs are reachable directly as well:
+
+```rebol
+b2d: import 'blend2d
+
+b2d/codecs                     ;; == [png jpeg bmp qoi]
+bin: b2d/encode 'png img
+img: b2d/decode bin            ;; the format is recognized from the data
+```
+
+Two things to know:
+
+* **JPEG can only be read.** Blend2D has no JPEG encoder yet, so `encode 'jpeg` reports an error.
+* **Partial alpha does not survive a round trip exactly.** Blend2D's encoders take premultiplied
+  pixels while a Rebol `image!` keeps straight alpha. A fully opaque image is handed over as it
+  is, so nothing is lost (and the file is smaller); an image with translucent pixels is
+  premultiplied on the way in and undone on the way out, which rounds twice.
+
+The module is loaded on demand, so the codecs appear once something imports it - on a host
+without its own PNG codec, `load %photo.png` needs `import 'blend2d` first.
+
 ## Building
 
 The extension is built with the [Siskin builder](https://github.com/Siskin-framework/Builder/) using the
@@ -86,6 +136,22 @@ Returns info about Blend2D library
 Sets number of threads to be used
 * `count` `[integer!]` 0 means synchronous rendering; 1 is for async on main thread only else thread pool is used
 
+#### `codec-handle` `:format`
+Returns a codec dispatcher as a `codec` handle, for use as `entry`
+* `format` `[word!]` png, jpeg, bmp or qoi
+
+#### `encode` `:format` `:image`
+Encodes an image into a binary
+* `format` `[word!]` png, bmp or qoi (Blend2D has no JPEG encoder)
+* `image` `[image! handle!]` A Rebol image or a Blend2D image handle
+
+#### `decode` `:data`
+Decodes an image from a binary; the format is recognized from the data
+* `data` `[binary!]`
+
+#### `codecs`
+Returns the words of the image formats this build can handle
+
 
 ## Used handles and its getters / setters
 
@@ -119,4 +185,26 @@ Sets number of threads to be used
 /face-index       integer!            none                          "Index of the face in a font collection"
 /face-flags       integer!            none                          "Face flags (BLFontFaceFlags bit set)"
 /diag-flags       integer!            none                          "Diagnostic flags (BLFontFaceDiagFlags bit set)"
+```
+
+
+## Other extension values:
+```rebol
+foreach [name title suffixes] [
+	png  "Portable Network Graphics"        [%.png]
+	jpeg "Joint Photographic Experts Group" [%.jpg %.jpeg %.jfif]
+	bmp  "Device independent bitmap"        [%.bmp]
+	qoi  "Quite OK Image"                   [%.qoi]
+][
+	unless object? select system/codecs name [
+		register-codec compose/only [
+			name:     (to lit-word! name)
+			type:     'image
+			title:    (title)
+			suffixes: (suffixes)
+			entry:    (codec-handle name)
+		]
+	]
+]
+protect/hide 'codec-handle
 ```

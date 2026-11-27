@@ -1,7 +1,7 @@
 REBOL [
 	Title:   "Rebol Blend2D Extension"
 	Name:    blend2d
-	Version: 0.21.4
+	Version: 0.21.4.1
 	Needs:   3.22.5
 	Author:  @Oldes
 	License: Apache-2.0
@@ -55,6 +55,7 @@ extern REBCNT Handle_BLImage;
 // Number of threads a rendering context is created with; see `set-threads`.
 // Prefixed, because an embedded build links every extension into one binary.
 extern uint32_t Blend2D_thread_count;
+extern u32 Blend2d_codec_word;
 }
 
 ;; ---------------------------------------------------------------------------
@@ -173,6 +174,11 @@ words: [
 		chord
 		sweep
 		large
+		;- image codecs
+		png
+		jpeg
+		bmp
+		qoi
 		;------------------------------
 		;	stroke-alignment
 		;	center
@@ -256,7 +262,22 @@ commands: [
 		{Sets number of threads to be used}
 		count [integer!] {0 means synchronous rendering; 1 is for async on main thread only else thread pool is used}
 	]
-
+	codec-handle: [
+		{Returns a codec dispatcher as a `codec` handle, for use as `entry`}
+		format [word!] "png, jpeg, bmp or qoi"
+	]
+	encode: [
+		{Encodes an image into a binary}
+		format [word!]          "png, bmp or qoi (Blend2D has no JPEG encoder)"
+		image  [image! handle!] "A Rebol image or a Blend2D image handle"
+	]
+	decode: [
+		{Decodes an image from a binary; the format is recognized from the data}
+		data [binary!]
+	]
+	codecs: [
+		{Returns the words of the image formats this build can handle}
+	]
 	;; A scratch pad for quick native experiments - not part of the module's
 	;; interface. Enable it here AND in the nest file (which leaves
 	;; %blend2d-command-draw-test.c out of the build) at the same time; the
@@ -266,4 +287,35 @@ commands: [
 	;	{Draws a hardcoded gradient into an image (used for quick native experiments)}
 	;	image [image! pair!] "Target image, or a size of a new one"
 	;]
+]
+
+;; ---------------------------------------------------------------------------
+;; Registration.
+;;
+;; `register-codec` builds the same object shape that base-defs.reb builds for
+;; the internal codecs at boot, and appends the suffixes to
+;; system/catalog/file-types. That boot loop only runs once, so a codec
+;; registered from the C side later would stay a bare handle in system/codecs
+;; and DECODE would not recognise it - the object has to be made here.
+;;
+;; A format the host already provides is left alone: importing this module for
+;; `draw` must not replace the interpreter's own codec.
+mezzanine: [
+	foreach [name title suffixes] [
+		png  "Portable Network Graphics"        [%.png]
+		jpeg "Joint Photographic Experts Group" [%.jpg %.jpeg %.jfif]
+		bmp  "Device independent bitmap"        [%.bmp]
+		qoi  "Quite OK Image"                   [%.qoi]
+	][
+		unless object? select system/codecs name [
+			register-codec compose/only [
+				name:     (to lit-word! name)
+				type:     'image
+				title:    (title)
+				suffixes: (suffixes)
+				entry:    (codec-handle name)
+			]
+		]
+	]
+	protect/hide 'codec-handle
 ]
