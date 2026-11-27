@@ -7,7 +7,7 @@ REBOL [
 	License: Apache-2.0
 	Url:     https://github.com/Siskin-framework/Rebol-Blend2D
 	Options: [delay]
-	Exports: [draw]
+	Exports: [draw premultiply]
 	Purpose: {
 		2D vector graphics using the Blend2D rendering engine - a `draw`
 		dialect writing directly into Rebol images, plus reusable path,
@@ -277,6 +277,11 @@ commands: [
 	]
 	codecs: [
 		{Returns the words of the image formats this build can handle}
+	]
+	premultiply: [
+		{Multiplies the colour channels of an image by its alpha, in place}
+		image [image!] "Modified"
+		/back "Undoes the premultiplication instead"
 	]
 	;; A scratch pad for quick native experiments - not part of the module's
 	;; interface. Enable it here AND in the nest file (which leaves

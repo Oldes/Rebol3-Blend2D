@@ -79,6 +79,12 @@ REBCNT b2d_init_path_from_block(BLPathCore *path, REBSER *cmds, REBCNT index);
 // which is what the command returns. NULL when the size is not usable.
 REBSER* b2d_target_image(RXIFRM *frm, REBINT *width, REBINT *height);
 
+// A Rebol image! as a Blend2D pixel format: four bytes per pixel at the
+// C_R/C_G/C_B/C_A offsets, with straight (not premultiplied) alpha.
+// BL_FORMAT_FLAG_LE is what turns the shifts into byte offsets on a
+// big endian host as well.
+void b2d_rebol_pixel_format(BLFormatInfo *fi);
+
 
 //== handle callbacks =========================================================
 // Registered by Blend2d_Init() in blend2d.c. The free callbacks receive the

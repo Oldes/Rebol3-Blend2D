@@ -14,6 +14,24 @@
 #include "blend2d-command.h"
 
 
+// A Rebol image! as a Blend2D pixel format: four bytes per pixel at the
+// C_R/C_G/C_B/C_A offsets, with straight (not premultiplied) alpha.
+// BL_FORMAT_FLAG_LE is what turns the shifts into byte offsets on a
+// big endian host as well.
+void b2d_rebol_pixel_format(BLFormatInfo *fi) {
+	memset(fi, 0, sizeof(BLFormatInfo));
+	fi->depth   = 32;
+	fi->flags   = (BLFormatFlags)(BL_FORMAT_FLAG_RGBA | BL_FORMAT_FLAG_LE);
+	fi->r_size  = 8;
+	fi->g_size  = 8;
+	fi->b_size  = 8;
+	fi->a_size  = 8;
+	fi->r_shift = (uint8_t)(C_R * 8);
+	fi->g_shift = (uint8_t)(C_G * 8);
+	fi->b_shift = (uint8_t)(C_B * 8);
+	fi->a_shift = (uint8_t)(C_A * 8);
+}
+
 // TRUE when the value at `index` is a word of the given list; `cmd` then holds
 // its 1-based position (the W_BLEND2D_* value).
 REBOOL fetch_word(REBSER *cmds, REBCNT index, u32 *words, REBCNT *cmd) {

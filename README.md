@@ -152,6 +152,11 @@ Decodes an image from a binary; the format is recognized from the data
 #### `codecs`
 Returns the words of the image formats this build can handle
 
+#### `premultiply` `:image`
+Multiplies the colour channels of an image by its alpha, in place
+* `image` `[image!]` Modified
+* `/back` Undoes the premultiplication instead
+
 
 ## Used handles and its getters / setters
 

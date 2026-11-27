@@ -830,4 +830,25 @@ either quick? [
 	]
 ]
 
+
+;;=============================================================================
+group "Premultiply"
+;;=============================================================================
+
+--test-- "premultiply scales the colour by the alpha" [
+	i: make image! 1x1  i/1: 255.255.255.128
+	b2d/premultiply i
+	is? i/1 128.128.128.128
+]
+--test-- "/back undoes it"  [
+	i: make image! 1x1  i/1: 128.128.128.128
+	b2d/premultiply/back i
+	is? i/1 255.255.255.128
+]
+--test-- "an opaque pixel is left alone" [
+	i: make image! 1x1  i/1: 10.20.30
+	b2d/premultiply i
+	is? i/1 10.20.30.255
+]
+
 summary

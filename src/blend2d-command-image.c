@@ -15,6 +15,7 @@
 
 static const REBYTE *ERR_NO_HANDLE = (const REBYTE*)"Blend2D failed to make an image handle!";
 static const REBYTE *ERR_BAD_IMAGE = (const REBYTE*)"Blend2D failed to initialize the image!";
+static const REBYTE *ERR_PIXELS    = (const REBYTE*)"Blend2D failed to convert the pixels!";
 
 
 BLResult b2d_init_image_from_file(BLImageCore *image, REBSER *file_name) {
@@ -71,6 +72,48 @@ COMMAND cmd_blend2d_image(RXIFRM *frm, void *ctx) {
 	if (RXA_TYPE(frm, 1) == RXT_IMAGE) hob->series = (REBSER*)RXA_ARG(frm, 1).image;
 
 	RETURN_HANDLE(hob);
+}
+
+
+
+/* Converts the pixels of a Rebol image in place, between the straight alpha
+   of an image! and Blend2D's premultiplied PRGB32. */
+static BLResult b2d_premultiply_pixels(REBYTE *pixels, REBCNT w, REBCNT h, REBOOL back)
+{
+	BLFormatInfo straight, premul;
+	BLPixelConverterCore pc;
+	intptr_t stride = (intptr_t)w * 4;
+	BLResult r;
+
+	b2d_rebol_pixel_format(&straight);
+	r = bl_format_info_query(&premul, BL_FORMAT_PRGB32);
+	if (r != BL_SUCCESS) return r;
+
+	bl_pixel_converter_init(&pc);
+	r = bl_pixel_converter_create(&pc,
+		back ? &straight : &premul,
+		back ? &premul : &straight,
+		BL_PIXEL_CONVERTER_CREATE_NO_FLAGS);
+	if (r == BL_SUCCESS) {
+		/* src == dst: every output pixel depends only on the input pixel at
+		   the same offset, which is why bl_image_convert converts in place
+		   itself whenever the depths match and the image is mutable. */
+		r = bl_pixel_converter_convert(&pc, pixels, stride, pixels, stride, w, h, NULL);
+	}
+	bl_pixel_converter_reset(&pc);
+	return r;
+}
+
+COMMAND cmd_blend2d_premultiply(RXIFRM *frm, void *ctx) {
+	REBSER *ser  = (REBSER*)RXA_ARG(frm, 1).image;
+	REBCNT  w    = RXA_IMAGE_WIDTH(frm, 1);
+	REBCNT  h    = RXA_IMAGE_HEIGHT(frm, 1);
+	REBOOL  back = (REBOOL)RXA_REF(frm, 2);
+
+	if (ser == NULL || w == 0 || h == 0) return RXR_VALUE;
+	if (BL_SUCCESS != b2d_premultiply_pixels(SERIES_DATA(ser), w, h, back))
+		RETURN_ERROR(ERR_PIXELS);
+	return RXR_VALUE;   /* slot 1 still holds the image - modified in place */
 }
 
 
