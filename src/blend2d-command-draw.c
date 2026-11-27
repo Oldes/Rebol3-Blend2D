@@ -639,7 +639,7 @@ COMMAND cmd_blend2d_draw(RXIFRM *frm, void *reb_ctx) {
 				}
 				font_face_ext = (BLFontFaceCore*)arg[0].handle.hob->data;
 				debug_print("Font handle: %p\n", (void*)font_face_ext);
-				bl_font_create_from_face(&font, font_face_ext, font_size);
+				bl_font_create_from_face(&font, font_face_ext, (float)font_size);
 			}
 			else if (type == RXT_FILE || type == RXT_STRING) {
 				REBSER *file = b2d_file_arg(&arg[0], type);
@@ -651,7 +651,7 @@ COMMAND cmd_blend2d_draw(RXIFRM *frm, void *reb_ctx) {
 					debug_print("Failed to load font! (%s) %i\n", SERIES_TEXT(file), r);
 					goto error;
 				}
-				bl_font_create_from_face(&font, &font_face, font_size);
+				bl_font_create_from_face(&font, &font_face, (float)font_size);
 			}
 			else goto error;
 			break;
@@ -676,7 +676,7 @@ COMMAND cmd_blend2d_draw(RXIFRM *frm, void *reb_ctx) {
 			if (sz != font_size && sz > 0.0) {
 				font_size = sz;
 				bl_font_reset(&font);
-				bl_font_create_from_face(&font, (font_face_ext == NULL ? &font_face : font_face_ext), font_size);
+				bl_font_create_from_face(&font, (font_face_ext == NULL ? &font_face : font_face_ext), (float)font_size);
 				debug_print("font_size: %f\n", font_size);
 			}
 
