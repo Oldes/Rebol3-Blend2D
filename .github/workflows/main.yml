@@ -34,7 +34,7 @@ jobs:
       run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest --msvc -o ./blend2d-abi1-windows-x64.rebx blend2d-windows-x64
+      run: ./siskin Rebol-Blend2D.nest --msvc -o ./blend2d-windows-x64.rebx blend2d-windows-x64
 
     - name: Test extension
       run:  ./siskin --script ci-test.r3
@@ -72,7 +72,7 @@ jobs:
       run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-macos-x64.rebx blend2d-macos-x64
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-macos-x64.rebx blend2d-macos-x64
 
     - name: Install Siskin Builder (Intel version)
       uses: oldes/install-siskin@v0.23.4
@@ -111,7 +111,7 @@ jobs:
       run: ./siskin Rebol-Blend2D.nest cmake-blend2d-arm64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-macos-arm64.rebx blend2d-macos-arm64
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-macos-arm64.rebx blend2d-macos-arm64
 
     - name: Test extension
       run:  ./siskin --script ci-test.r3
@@ -147,7 +147,7 @@ jobs:
       run: ./siskin Rebol-Blend2D.nest cmake-blend2d-x64
 
     - name: Build 64bit Rebol Blend2d extension
-      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-abi1-linux-x64.rebx blend2d-linux-x64
+      run: ./siskin Rebol-Blend2D.nest --gzip -o ./blend2d-linux-x64.rebx blend2d-linux-x64
 
     - name: Test extension
       run:  ./siskin --script ci-test.r3
